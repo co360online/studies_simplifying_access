@@ -91,7 +91,7 @@ class Formidable {
 			return;
 		}
 
-		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
 		if ( empty( $token ) ) {
 			return;
 		}

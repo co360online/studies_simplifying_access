@@ -32,6 +32,9 @@ class Formidable {
 
 		$token = isset( $values['co360_ssa_token'] ) ? sanitize_text_field( $values['co360_ssa_token'] ) : '';
 		if ( empty( $token ) ) {
+			$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		}
+		if ( empty( $token ) ) {
 			return $errors;
 		}
 
@@ -75,7 +78,7 @@ class Formidable {
 			return;
 		}
 
-		$token = isset( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ? sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ) : '';
+		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
 		if ( empty( $token ) ) {
 			return;
 		}

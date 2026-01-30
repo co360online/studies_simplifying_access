@@ -238,10 +238,58 @@ class Shortcodes {
 			$form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
 		}
 
+		$form_output = '';
+		if ( empty( $errors ) && $form_id ) {
+			$form_output = $this->render_formidable_form( $form_id, $token );
+		}
+
 		ob_start();
 		wp_enqueue_style( 'co360-ssa-front' );
 		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-enrollment.php';
 		return ob_get_clean();
+	}
+
+	private function render_formidable_form( $form_id, $token ) {
+		if ( ! class_exists( '\FrmFormsController' ) ) {
+			return do_shortcode( '[formidable id="' . absint( $form_id ) . '"]' );
+		}
+
+		$token = sanitize_text_field( $token );
+		$hidden = '<input type="hidden" name="' . esc_attr( CO360_SSA_TOKEN_QUERY ) . '" value="' . esc_attr( $token ) . '">';
+
+		add_filter(
+			'frm_form_content',
+			array( $this, 'inject_formidable_token' ),
+			10,
+			2
+		);
+		$this->formidable_token_data = array(
+			'form_id' => (int) $form_id,
+			'hidden' => $hidden,
+		);
+
+		$form_html = \FrmFormsController::show_form( $form_id, '', true, false );
+
+		remove_filter( 'frm_form_content', array( $this, 'inject_formidable_token' ), 10 );
+		$this->formidable_token_data = null;
+
+		return $form_html;
+	}
+
+	private $formidable_token_data;
+
+	public function inject_formidable_token( $content, $form ) {
+		if ( empty( $this->formidable_token_data ) ) {
+			return $content;
+		}
+		if ( (int) $form->id !== (int) $this->formidable_token_data['form_id'] ) {
+			return $content;
+		}
+		$hidden = $this->formidable_token_data['hidden'];
+		if ( false === strpos( $content, $hidden ) ) {
+			$content = preg_replace( '/(<form[^>]*>)/', '$1' . $hidden, $content, 1 );
+		}
+		return $content;
 	}
 
 	public function shortcode_stats( $atts ) {

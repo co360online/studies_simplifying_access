@@ -180,6 +180,49 @@ class Utils {
 		return $rows;
 	}
 
+	public static function ensure_centers_have_codes( $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, center_code FROM {$table} WHERE estudio_id = %d AND (center_code = '' OR center_code IS NULL) ORDER BY id ASC",
+				$study_id
+			),
+			ARRAY_A
+		);
+		if ( empty( $rows ) ) {
+			return;
+		}
+		foreach ( $rows as $row ) {
+			$center_code = self::next_center_code( $study_id );
+			if ( '' === $center_code ) {
+				continue;
+			}
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$table} SET center_code = %s WHERE id = %d AND (center_code = '' OR center_code IS NULL)",
+					$center_code,
+					$row['id']
+				)
+			);
+		}
+	}
+
+	private static function next_center_code( $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+				VALUES (%d, 0, NOW())
+				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+				$study_id
+			)
+		);
+		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+		return self::format_center_code( (string) $seq );
+	}
+
 	public static function get_debug_level() {
 		if ( isset( $_GET[ CO360_SSA_DEBUG_QUERY ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return absint( $_GET[ CO360_SSA_DEBUG_QUERY ] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended

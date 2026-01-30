@@ -260,6 +260,9 @@ class Shortcodes {
 		if ( ! $center_field_id ) {
 			$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
 		}
+		if ( $study_id ) {
+			Utils::ensure_centers_have_codes( $study_id );
+		}
 		$centers = $study_id ? Utils::get_centers_for_study( $study_id ) : array();
 
 		add_filter(
@@ -323,10 +326,7 @@ class Shortcodes {
 		}
 		$options = array();
 		foreach ( $this->formidable_center_data['centers'] as $center ) {
-			$label = $center['center_name'];
-			if ( ! empty( $center['center_code'] ) ) {
-				$label = $center['center_code'] . ' — ' . $center['center_name'];
-			}
+			$label = $center['center_code'] . ' — ' . $center['center_name'];
 			$options[ (string) $center['id'] ] = $label;
 		}
 		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );

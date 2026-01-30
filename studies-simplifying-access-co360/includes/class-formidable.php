@@ -30,17 +30,15 @@ class Formidable {
 			return $errors;
 		}
 
-		$token = isset( $values['co360_ssa_token'] ) ? sanitize_text_field( $values['co360_ssa_token'] ) : '';
+		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
 		if ( empty( $token ) ) {
-			$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
-		}
-		if ( empty( $token ) ) {
+			$errors['co360_ssa_context'] = __( 'Token inválido o expirado.', CO360_SSA_TEXT_DOMAIN );
 			return $errors;
 		}
 
 		$context = $this->auth->get_context_by_token( $token );
 		if ( ! $context ) {
-			$errors['co360_ssa_context'] = __( 'No se pudo validar el contexto de inscripción.', CO360_SSA_TEXT_DOMAIN );
+			$errors['co360_ssa_context'] = __( 'Token inválido o expirado.', CO360_SSA_TEXT_DOMAIN );
 			return $errors;
 		}
 
@@ -55,12 +53,31 @@ class Formidable {
 			$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
 		}
 		$center_other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
-		$center_selection = $this->get_center_code_from_values( $values, $center_select_field_id );
-		$center_other_name = $this->get_center_code_from_values( $values, $center_other_field_id );
+		$center_selection = '';
+		if ( isset( $_POST['item_meta'][ $center_select_field_id ] ) ) {
+			$center_selection = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_select_field_id ] ) );
+		}
+		$center_other_name = '';
+		if ( isset( $_POST['item_meta'][ $center_other_field_id ] ) ) {
+			$center_other_name = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_other_field_id ] ) );
+		}
 		$center_validation = $this->validate_center_selection( $study_id, $center_selection, $center_other_name );
 		if ( is_wp_error( $center_validation ) ) {
 			$errors['co360_ssa_center'] = $center_validation->get_error_message();
 			return $errors;
+		}
+		if ( 2 === Utils::get_debug_level() ) {
+			$center_valid = $this->get_center_by_code( $study_id, Utils::format_center_code( (string) $center_selection ) ) ? '1' : '0';
+			Utils::log(
+				sprintf(
+					'Debug inscripción: token=%s study_id=%d center_field_id=%d selected=%s center_exists=%s',
+					$token,
+					$study_id,
+					$center_select_field_id,
+					$center_selection,
+					$center_valid
+				)
+			);
 		}
 
 		$user = wp_get_current_user();

@@ -183,6 +183,9 @@ class Plugin {
 		}
 
 		$current_url = get_permalink( $page_id );
+		if ( is_user_logged_in() && current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		if ( ! is_user_logged_in() ) {
 			$options = Utils::get_options();
 			if ( ! empty( $options['login_page_url'] ) ) {

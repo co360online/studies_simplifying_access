@@ -23,6 +23,13 @@ class Formidable {
 			return $errors;
 		}
 
+		$form_id = isset( $values['form_id'] ) ? absint( $values['form_id'] ) : 0;
+		$options = Utils::get_options();
+		$registration_form_id = absint( $options['registration_form_id'] );
+		if ( $registration_form_id && $form_id === $registration_form_id ) {
+			return $errors;
+		}
+
 		$token = isset( $values['co360_ssa_token'] ) ? sanitize_text_field( $values['co360_ssa_token'] ) : '';
 		if ( empty( $token ) ) {
 			return $errors;
@@ -31,6 +38,12 @@ class Formidable {
 		$context = $this->auth->get_context_by_token( $token );
 		if ( ! $context ) {
 			$errors['co360_ssa_context'] = __( 'No se pudo validar el contexto de inscripción.', CO360_SSA_TEXT_DOMAIN );
+			return $errors;
+		}
+
+		$study_id = absint( $context['study_id'] );
+		$enroll_form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
+		if ( ! $enroll_form_id || $form_id !== $enroll_form_id ) {
 			return $errors;
 		}
 
@@ -56,6 +69,12 @@ class Formidable {
 			return;
 		}
 
+		$options = Utils::get_options();
+		$registration_form_id = absint( $options['registration_form_id'] );
+		if ( $registration_form_id && $registration_form_id === absint( $form_id ) ) {
+			return;
+		}
+
 		$token = isset( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ? sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ) : '';
 		if ( empty( $token ) ) {
 			return;
@@ -72,7 +91,7 @@ class Formidable {
 
 		$study_id = absint( $context['study_id'] );
 		$study_form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
-		if ( $study_form_id && $study_form_id !== absint( $form_id ) ) {
+		if ( ! $study_form_id || $study_form_id !== absint( $form_id ) ) {
 			return;
 		}
 

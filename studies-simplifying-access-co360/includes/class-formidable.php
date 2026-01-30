@@ -30,7 +30,7 @@ class Formidable {
 			return $errors;
 		}
 
-		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		$token = $this->get_token_from_request();
 		if ( empty( $token ) ) {
 			$errors['co360_ssa_context'] = __( 'Token inválido o expirado.', CO360_SSA_TEXT_DOMAIN );
 			return $errors;
@@ -108,7 +108,7 @@ class Formidable {
 			return;
 		}
 
-		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		$token = $this->get_token_from_request();
 		if ( empty( $token ) ) {
 			return;
 		}
@@ -269,6 +269,28 @@ class Formidable {
 		$meta = $_POST['item_meta'] ?? array();
 		if ( $field_id && isset( $meta[ $field_id ] ) ) {
 			return sanitize_text_field( wp_unslash( $meta[ $field_id ] ) );
+		}
+		return '';
+	}
+
+	private function get_token_from_request() {
+		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( '' !== $token ) {
+			return $token;
+		}
+		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( '' !== $token ) {
+			return $token;
+		}
+		$referer = sanitize_text_field( wp_unslash( $_POST['_wp_http_referer'] ?? '' ) );
+		if ( '' !== $referer ) {
+			$parsed = wp_parse_url( $referer );
+			if ( ! empty( $parsed['query'] ) ) {
+				parse_str( $parsed['query'], $query_vars );
+				if ( ! empty( $query_vars[ CO360_SSA_TOKEN_QUERY ] ) ) {
+					return sanitize_text_field( wp_unslash( $query_vars[ CO360_SSA_TOKEN_QUERY ] ) );
+				}
+			}
 		}
 		return '';
 	}

@@ -29,6 +29,7 @@ class Plugin {
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 		add_action( 'template_redirect', array( $this, 'handle_after_login' ), 1 );
+		add_action( 'template_redirect', array( $this, 'protect_pages' ), 5 );
 
 		( new CPT_Study() )->register();
 		( new Settings() )->register();
@@ -110,8 +111,13 @@ class Plugin {
 		$form_id = absint( $meta['enroll_form_id'] );
 		$enroll_url = ! empty( $meta['enroll_page_url'] ) ? $meta['enroll_page_url'] : Utils::get_options()['enrollment_page_url'];
 		$crd_url = ! empty( $meta['crd_url'] ) ? $meta['crd_url'] : home_url( '/' );
+		$study_page_id = absint( $meta['study_page_id'] );
+		$study_page_url = $study_page_id ? get_permalink( $study_page_id ) : '';
 
 		if ( $this->user_has_enrollment( $user->ID, $study_id ) ) {
+			if ( $study_page_url ) {
+				$this->redirect->safe_redirect( $study_page_url );
+			}
 			$this->redirect->safe_redirect( $crd_url );
 		}
 
@@ -121,6 +127,9 @@ class Plugin {
 		}
 
 		$this->insert_enrollment_if_missing( $user->ID, $study_id, $context['code'] );
+		if ( $study_page_url ) {
+			$this->redirect->safe_redirect( $study_page_url );
+		}
 		$this->redirect->safe_redirect( $crd_url );
 	}
 
@@ -135,6 +144,66 @@ class Plugin {
 		echo '<pre>' . esc_html( wp_json_encode( $context, JSON_PRETTY_PRINT ) ) . '</pre>';
 		echo '</div>';
 		exit;
+	}
+
+
+	public function protect_pages() {
+		if ( ! is_page() ) {
+			return;
+		}
+
+		$page_id = get_queried_object_id();
+		if ( ! $page_id ) {
+			return;
+		}
+
+		$studies = get_posts(
+			array(
+				'post_type' => CO360_SSA_CT_STUDY,
+				'numberposts' => -1,
+				'meta_query' => array(
+					array(
+						'key' => '_co360_ssa_activo',
+						'value' => '1',
+					),
+				),
+			)
+		);
+
+		$protected_study_id = 0;
+		foreach ( $studies as $study ) {
+			$protected_pages = get_post_meta( $study->ID, '_co360_ssa_protected_pages', true );
+			$protected_pages = is_array( $protected_pages ) ? array_map( 'absint', $protected_pages ) : array();
+			if ( in_array( $page_id, $protected_pages, true ) ) {
+				$protected_study_id = $study->ID;
+				break;
+			}
+		}
+
+		if ( ! $protected_study_id ) {
+			return;
+		}
+
+		$current_url = get_permalink( $page_id );
+		if ( ! is_user_logged_in() ) {
+			$options = Utils::get_options();
+			if ( ! empty( $options['login_page_url'] ) ) {
+				$login_url = add_query_arg( 'redirect_to', $current_url, $options['login_page_url'] );
+			} else {
+				$login_url = wp_login_url( $current_url );
+			}
+			$this->redirect->safe_redirect( $login_url );
+		}
+
+		$user = wp_get_current_user();
+		if ( ! $this->user_has_enrollment( $user->ID, $protected_study_id ) ) {
+			$study_page_id = absint( get_post_meta( $protected_study_id, '_co360_ssa_study_page_id', true ) );
+			$access_url = $study_page_id ? get_permalink( $study_page_id ) : home_url( '/' );
+			wp_die(
+				wp_kses_post( __( 'Acceso denegado. Debes estar inscrito en el estudio para ver esta página.', CO360_SSA_TEXT_DOMAIN ) ) .
+				' <a href="' . esc_url( $access_url ) . '">' . esc_html__( 'Ir a la página del estudio', CO360_SSA_TEXT_DOMAIN ) . '</a>'
+			);
+		}
 	}
 
 	private function user_has_enrollment( $user_id, $study_id ) {

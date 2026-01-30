@@ -94,6 +94,8 @@ class Utils {
 			'enroll_page_url' => get_post_meta( $study_id, '_co360_ssa_enroll_page_url', true ),
 			'code_mode' => get_post_meta( $study_id, '_co360_ssa_code_mode', true ),
 			'lock_email' => get_post_meta( $study_id, '_co360_ssa_lock_email', true ),
+			'study_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) ),
+			'protected_pages' => get_post_meta( $study_id, '_co360_ssa_protected_pages', true ),
 		);
 	}
 

@@ -83,6 +83,33 @@ class CPT_Study {
 				<?php esc_html_e( 'Bloquear código al primer email que lo use', CO360_SSA_TEXT_DOMAIN ); ?>
 			</label>
 		</p>
+
+		<p>
+			<strong><?php esc_html_e( 'Página del estudio (landing)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<?php
+			wp_dropdown_pages(
+				array(
+					'name' => 'co360_ssa_study_page_id',
+					'show_option_none' => __( '-- Seleccionar --', CO360_SSA_TEXT_DOMAIN ),
+					'option_none_value' => '0',
+					'selected' => $meta['study_page_id'],
+				)
+			);
+			?>
+		</p>
+		<p>
+			<strong><?php esc_html_e( 'Páginas protegidas', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<?php
+			$pages = get_pages();
+			$protected = is_array( $meta['protected_pages'] ) ? array_map( 'absint', $meta['protected_pages'] ) : array();
+			foreach ( $pages as $page ) :
+				?>
+				<label style="display:block; margin:4px 0;">
+					<input type="checkbox" name="co360_ssa_protected_pages[]" value="<?php echo esc_attr( $page->ID ); ?>" <?php checked( in_array( $page->ID, $protected, true ) ); ?>>
+					<?php echo esc_html( $page->post_title ); ?>
+				</label>
+			<?php endforeach; ?>
+		</p>
 		<p>
 			<label>
 				<input type="checkbox" name="co360_ssa_activo" value="1" <?php checked( $meta['activo'], '1' ); ?>>
@@ -111,5 +138,11 @@ class CPT_Study {
 		update_post_meta( $post_id, '_co360_ssa_code_mode', ( isset( $_POST['co360_ssa_code_mode'] ) && 'list' === $_POST['co360_ssa_code_mode'] ) ? 'list' : 'single' );
 		update_post_meta( $post_id, '_co360_ssa_lock_email', isset( $_POST['co360_ssa_lock_email'] ) ? '1' : '0' );
 		update_post_meta( $post_id, '_co360_ssa_activo', isset( $_POST['co360_ssa_activo'] ) ? '1' : '0' );
+		update_post_meta( $post_id, '_co360_ssa_study_page_id', absint( $_POST['co360_ssa_study_page_id'] ?? 0 ) );
+		$protected_pages = array();
+		if ( isset( $_POST['co360_ssa_protected_pages'] ) && is_array( $_POST['co360_ssa_protected_pages'] ) ) {
+			$protected_pages = array_map( 'absint', wp_unslash( $_POST['co360_ssa_protected_pages'] ) );
+		}
+		update_post_meta( $post_id, '_co360_ssa_protected_pages', $protected_pages );
 	}
 }

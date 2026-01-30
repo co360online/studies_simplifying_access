@@ -105,6 +105,11 @@ class Formidable {
 			$this->auth->finalize_list_code_usage( $study_id, $context['code'] );
 		}
 
+		$study_page_id = absint( $meta['study_page_id'] );
+		if ( $study_page_id ) {
+			( new Redirect() )->safe_redirect( get_permalink( $study_page_id ) );
+		}
+
 		if ( ! empty( $meta['crd_url'] ) ) {
 			( new Redirect() )->safe_redirect( $meta['crd_url'] );
 		}

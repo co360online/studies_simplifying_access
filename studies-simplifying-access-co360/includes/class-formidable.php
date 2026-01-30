@@ -50,9 +50,15 @@ class Formidable {
 			return $errors;
 		}
 
-		$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
-		$center_code = $this->get_center_code_from_values( $values, $center_field_id );
-		if ( ! $center_code || ! $this->is_valid_center_code( $study_id, $center_code ) ) {
+		$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
+		if ( ! $center_select_field_id ) {
+			$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
+		}
+		$center_other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
+		$center_selection = $this->get_center_code_from_values( $values, $center_select_field_id );
+		$center_other_name = $this->get_center_code_from_values( $values, $center_other_field_id );
+		$center_validation = $this->validate_center_selection( $study_id, $center_selection, $center_other_name );
+		if ( is_wp_error( $center_validation ) ) {
 			$errors['co360_ssa_center'] = __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN );
 			return $errors;
 		}
@@ -105,13 +111,19 @@ class Formidable {
 			return;
 		}
 
-		$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
-		$center_code = $this->get_center_code_from_request( $entry_id, $center_field_id );
-		if ( ! $center_code || ! $this->is_valid_center_code( $study_id, $center_code ) ) {
+		$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
+		if ( ! $center_select_field_id ) {
+			$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
+		}
+		$center_other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
+		$center_selection = $this->get_center_code_from_request( $entry_id, $center_select_field_id );
+		$center_other_name = $this->get_center_code_from_request( $entry_id, $center_other_field_id );
+		$center_row = $this->resolve_center_row( $study_id, $center_selection, $center_other_name, $user->ID );
+		if ( ! $center_row ) {
 			return;
 		}
 
-		$investigator_code = $this->generate_investigator_code( $study_id, $center_code );
+		$investigator_code = $this->generate_investigator_code( $study_id, $center_row['center_code'] );
 		if ( ! $investigator_code ) {
 			return;
 		}
@@ -136,11 +148,13 @@ class Formidable {
 				'user_id' => $user->ID,
 				'estudio_id' => $study_id,
 				'code_used' => sanitize_text_field( $context['code'] ),
-				'center_code' => $center_code,
+				'center_id' => $center_row['id'],
+				'center_code' => $center_row['center_code'],
+				'center_name' => $center_row['center_name'],
 				'investigator_code' => $investigator_code,
 				'created_at' => current_time( 'mysql' ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
 
 		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
@@ -242,14 +256,117 @@ class Formidable {
 		return '';
 	}
 
-	private function is_valid_center_code( $study_id, $center_code ) {
-		$centers = Utils::get_centers_list( $study_id );
-		foreach ( $centers as $center ) {
-			if ( $center_code === $center['code'] ) {
-				return true;
-			}
+	private function validate_center_selection( $study_id, $selection, $other_name ) {
+		if ( empty( $selection ) ) {
+			return new \WP_Error( 'center_required', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
 		}
-		return false;
+		if ( 'other' === $selection ) {
+			$name = Utils::normalize_center_name( $other_name );
+			if ( strlen( $name ) < 3 ) {
+				return new \WP_Error( 'center_other_required', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+			}
+			return true;
+		}
+		if ( ! ctype_digit( (string) $selection ) ) {
+			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+		$center = $this->get_center_by_id( $study_id, (int) $selection );
+		if ( ! $center ) {
+			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+		return true;
+	}
+
+	private function resolve_center_row( $study_id, $selection, $other_name, $user_id ) {
+		if ( 'other' === $selection ) {
+			$name = Utils::normalize_center_name( $other_name );
+			if ( strlen( $name ) < 3 ) {
+				return null;
+			}
+			$slug = Utils::center_slug( $name );
+			$existing = $this->get_center_by_slug( $study_id, $slug );
+			if ( $existing ) {
+				return $existing;
+			}
+			$center_code = $this->next_center_code( $study_id );
+			if ( ! $center_code ) {
+				return null;
+			}
+			$inserted = $this->insert_center( $study_id, $center_code, $name, $slug, 'user', $user_id );
+			if ( ! $inserted ) {
+				return $this->get_center_by_slug( $study_id, $slug );
+			}
+			return $this->get_center_by_slug( $study_id, $slug );
+		}
+
+		if ( ! ctype_digit( (string) $selection ) ) {
+			return null;
+		}
+		return $this->get_center_by_id( $study_id, (int) $selection );
+	}
+
+	private function get_center_by_id( $study_id, $center_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, center_code, center_name FROM {$table} WHERE estudio_id = %d AND id = %d",
+				$study_id,
+				$center_id
+			),
+			ARRAY_A
+		);
+		return $row ? $row : null;
+	}
+
+	private function get_center_by_slug( $study_id, $slug ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, center_code, center_name FROM {$table} WHERE estudio_id = %d AND center_slug = %s",
+				$study_id,
+				$slug
+			),
+			ARRAY_A
+		);
+		return $row ? $row : null;
+	}
+
+	private function insert_center( $study_id, $center_code, $center_name, $center_slug, $source, $created_by ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$inserted = $wpdb->insert(
+			$table,
+			array(
+				'estudio_id' => $study_id,
+				'center_code' => $center_code,
+				'center_name' => $center_name,
+				'center_slug' => $center_slug,
+				'source' => $source,
+				'created_by' => $created_by,
+			),
+			array( '%d', '%s', '%s', '%s', '%s', '%d' )
+		);
+		return (bool) $inserted;
+	}
+
+	private function next_center_code( $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+				VALUES (%d, 0, NOW())
+				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+				$study_id
+			)
+		);
+		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+		if ( $seq <= 0 ) {
+			return '';
+		}
+		return str_pad( (string) $seq, 2, '0', STR_PAD_LEFT );
 	}
 
 	private function generate_investigator_code( $study_id, $center_code ) {

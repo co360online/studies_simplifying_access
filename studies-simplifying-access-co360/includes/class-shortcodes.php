@@ -240,7 +240,7 @@ class Shortcodes {
 
 		$form_output = '';
 		if ( empty( $errors ) && $form_id ) {
-			$form_output = $this->render_formidable_form( $form_id, $token );
+			$form_output = $this->render_formidable_form( $form_id, $token, $study_id );
 		}
 
 		ob_start();
@@ -249,13 +249,18 @@ class Shortcodes {
 		return ob_get_clean();
 	}
 
-	private function render_formidable_form( $form_id, $token ) {
+	private function render_formidable_form( $form_id, $token, $study_id ) {
 		if ( ! class_exists( '\FrmFormsController' ) ) {
 			return do_shortcode( '[formidable id="' . absint( $form_id ) . '"]' );
 		}
 
 		$token = sanitize_text_field( $token );
 		$hidden = '<input type="hidden" name="' . esc_attr( CO360_SSA_TOKEN_QUERY ) . '" value="' . esc_attr( $token ) . '">';
+		$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
+		if ( ! $center_field_id ) {
+			$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
+		}
+		$centers = $study_id ? Utils::get_centers_for_study( $study_id ) : array();
 
 		add_filter(
 			'frm_form_content',
@@ -263,20 +268,34 @@ class Shortcodes {
 			10,
 			2
 		);
+		add_filter(
+			'frm_setup_new_fields_vars',
+			array( $this, 'inject_formidable_centers' ),
+			10,
+			2
+		);
 		$this->formidable_token_data = array(
 			'form_id' => (int) $form_id,
 			'hidden' => $hidden,
+		);
+		$this->formidable_center_data = array(
+			'form_id' => (int) $form_id,
+			'field_id' => $center_field_id,
+			'centers' => $centers,
 		);
 
 		$form_html = \FrmFormsController::show_form( $form_id, '', true, false );
 
 		remove_filter( 'frm_form_content', array( $this, 'inject_formidable_token' ), 10 );
+		remove_filter( 'frm_setup_new_fields_vars', array( $this, 'inject_formidable_centers' ), 10 );
 		$this->formidable_token_data = null;
+		$this->formidable_center_data = null;
 
 		return $form_html;
 	}
 
 	private $formidable_token_data;
+	private $formidable_center_data;
 
 	public function inject_formidable_token( $content, $form ) {
 		if ( empty( $this->formidable_token_data ) ) {
@@ -290,6 +309,25 @@ class Shortcodes {
 			$content = preg_replace( '/(<form[^>]*>)/', '$1' . $hidden, $content, 1 );
 		}
 		return $content;
+	}
+
+	public function inject_formidable_centers( $values, $field ) {
+		if ( empty( $this->formidable_center_data ) ) {
+			return $values;
+		}
+		if ( (int) $field->form_id !== (int) $this->formidable_center_data['form_id'] ) {
+			return $values;
+		}
+		if ( (int) $field->id !== (int) $this->formidable_center_data['field_id'] ) {
+			return $values;
+		}
+		$options = array();
+		foreach ( $this->formidable_center_data['centers'] as $center ) {
+			$options[ (string) $center['id'] ] = $center['center_name'];
+		}
+		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );
+		$values['options'] = $options;
+		return $values;
 	}
 
 	public function shortcode_stats( $atts ) {

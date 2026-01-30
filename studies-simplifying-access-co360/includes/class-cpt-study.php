@@ -70,12 +70,16 @@ class CPT_Study {
 			<input type="number" name="co360_ssa_enroll_form_id" value="<?php echo esc_attr( $meta['enroll_form_id'] ); ?>" class="small-text">
 		</p>
 		<p>
-			<strong><?php esc_html_e( 'ID del campo centro (Formidable)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
-			<input type="number" name="co360_ssa_center_field_id" value="<?php echo esc_attr( $meta['center_field_id'] ); ?>" class="small-text">
+			<strong><?php esc_html_e( 'ID del campo centro (select)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<input type="number" name="co360_ssa_center_select_field_id" value="<?php echo esc_attr( $meta['center_select_field_id'] ); ?>" class="small-text">
 		</p>
 		<p>
-			<strong><?php esc_html_e( 'Centros del estudio (CODE|Nombre por línea)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
-			<textarea name="co360_ssa_centers_list" class="large-text" rows="6"><?php echo esc_textarea( $meta['centers_list'] ); ?></textarea>
+			<strong><?php esc_html_e( 'ID del campo otro centro (texto)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<input type="number" name="co360_ssa_center_other_field_id" value="<?php echo esc_attr( $meta['center_other_field_id'] ); ?>" class="small-text">
+		</p>
+		<p>
+			<strong><?php esc_html_e( 'Centros del estudio (seed)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<textarea name="co360_ssa_centers_seed" class="large-text" rows="6"><?php echo esc_textarea( $meta['centers_seed'] ); ?></textarea>
 		</p>
 		<p>
 			<strong><?php esc_html_e( 'Página de inscripción', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
@@ -154,8 +158,10 @@ class CPT_Study {
 		update_post_meta( $post_id, '_co360_ssa_regex', Utils::sanitize_text( $_POST['co360_ssa_regex'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_crd_url', Utils::sanitize_url( $_POST['co360_ssa_crd_url'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_enroll_form_id', absint( $_POST['co360_ssa_enroll_form_id'] ?? 0 ) );
-		update_post_meta( $post_id, '_co360_ssa_center_field_id', absint( $_POST['co360_ssa_center_field_id'] ?? 0 ) );
-		update_post_meta( $post_id, '_co360_ssa_centers_list', sanitize_textarea_field( wp_unslash( $_POST['co360_ssa_centers_list'] ?? '' ) ) );
+		update_post_meta( $post_id, '_co360_ssa_center_select_field_id', absint( $_POST['co360_ssa_center_select_field_id'] ?? 0 ) );
+		update_post_meta( $post_id, '_co360_ssa_center_other_field_id', absint( $_POST['co360_ssa_center_other_field_id'] ?? 0 ) );
+		$centers_seed = sanitize_textarea_field( wp_unslash( $_POST['co360_ssa_centers_seed'] ?? '' ) );
+		update_post_meta( $post_id, '_co360_ssa_centers_seed', $centers_seed );
 		update_post_meta( $post_id, '_co360_ssa_enroll_page_id', absint( $_POST['co360_ssa_enroll_page_id'] ?? 0 ) );
 		update_post_meta( $post_id, '_co360_ssa_code_mode', ( isset( $_POST['co360_ssa_code_mode'] ) && 'list' === $_POST['co360_ssa_code_mode'] ) ? 'list' : 'single' );
 		update_post_meta( $post_id, '_co360_ssa_lock_email', isset( $_POST['co360_ssa_lock_email'] ) ? '1' : '0' );
@@ -166,5 +172,96 @@ class CPT_Study {
 			$protected_pages = array_map( 'absint', wp_unslash( $_POST['co360_ssa_protected_pages'] ) );
 		}
 		update_post_meta( $post_id, '_co360_ssa_protected_pages', $protected_pages );
+
+		$this->sync_centers_seed( $post_id, $centers_seed );
+	}
+
+	private function sync_centers_seed( $study_id, $raw_seed ) {
+		$centers = Utils::parse_centers_seed( $raw_seed );
+		if ( empty( $centers ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+
+		foreach ( $centers as $center ) {
+			$name = Utils::normalize_center_name( $center['name'] );
+			if ( '' === $name ) {
+				continue;
+			}
+			$slug = Utils::center_slug( $name );
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, center_name FROM {$table} WHERE estudio_id = %d AND center_slug = %s",
+					$study_id,
+					$slug
+				),
+				ARRAY_A
+			);
+			if ( $existing ) {
+				if ( $existing['center_name'] !== $name ) {
+					$wpdb->update(
+						$table,
+						array( 'center_name' => $name ),
+						array( 'id' => $existing['id'] ),
+						array( '%s' ),
+						array( '%d' )
+					);
+				}
+				continue;
+			}
+
+			$code = sanitize_text_field( $center['code'] );
+			if ( $code ) {
+				$code_exists = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM {$table} WHERE estudio_id = %d AND center_code = %s",
+						$study_id,
+						$code
+					)
+				);
+				if ( $code_exists ) {
+					continue;
+				}
+			} else {
+				$code = $this->next_center_code( $study_id );
+			}
+
+			if ( ! $code ) {
+				continue;
+			}
+
+			$wpdb->insert(
+				$table,
+				array(
+					'estudio_id' => $study_id,
+					'center_code' => $code,
+					'center_name' => $name,
+					'center_slug' => $slug,
+					'source' => 'seed',
+					'created_by' => get_current_user_id(),
+				),
+				array( '%d', '%s', '%s', '%s', '%s', '%d' )
+			);
+		}
+	}
+
+	private function next_center_code( $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+				VALUES (%d, 0, NOW())
+				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+				$study_id
+			)
+		);
+		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+		if ( $seq <= 0 ) {
+			return '';
+		}
+		return str_pad( (string) $seq, 2, '0', STR_PAD_LEFT );
 	}
 }

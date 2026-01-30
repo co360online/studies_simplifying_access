@@ -91,8 +91,9 @@ class Utils {
 			'crd_url' => get_post_meta( $study_id, '_co360_ssa_crd_url', true ),
 			'activo' => get_post_meta( $study_id, '_co360_ssa_activo', true ),
 			'enroll_form_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) ),
-			'center_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) ),
-			'centers_list' => get_post_meta( $study_id, '_co360_ssa_centers_list', true ),
+			'center_select_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) ),
+			'center_other_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) ),
+			'centers_seed' => get_post_meta( $study_id, '_co360_ssa_centers_seed', true ),
 			'enroll_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) ),
 			'code_mode' => get_post_meta( $study_id, '_co360_ssa_code_mode', true ),
 			'lock_email' => get_post_meta( $study_id, '_co360_ssa_lock_email', true ),
@@ -101,7 +102,19 @@ class Utils {
 		);
 	}
 
-	public static function parse_centers_list( $raw ) {
+	public static function normalize_center_name( $name ) {
+		$name = preg_replace( '/[\r\n\t]+/', ' ', (string) $name );
+		$name = trim( preg_replace( '/\s+/', ' ', $name ) );
+		return $name;
+	}
+
+	public static function center_slug( $name ) {
+		$slug = remove_accents( strtolower( (string) $name ) );
+		$slug = preg_replace( '/[^a-z0-9]+/', '-', $slug );
+		return trim( $slug, '-' );
+	}
+
+	public static function parse_centers_seed( $raw ) {
 		$lines = preg_split( '/\r\n|\r|\n/', (string) $raw );
 		$centers = array();
 		foreach ( $lines as $line ) {
@@ -110,9 +123,15 @@ class Utils {
 				continue;
 			}
 			$parts = array_map( 'trim', explode( '|', $line, 2 ) );
-			$code = $parts[0] ?? '';
-			$name = $parts[1] ?? '';
-			if ( '' === $code ) {
+			if ( count( $parts ) > 1 ) {
+				$code = $parts[0];
+				$name = $parts[1] ?? '';
+			} else {
+				$code = '';
+				$name = $parts[0];
+			}
+			$name = self::normalize_center_name( $name );
+			if ( '' === $name ) {
 				continue;
 			}
 			$centers[] = array(
@@ -123,9 +142,22 @@ class Utils {
 		return $centers;
 	}
 
-	public static function get_centers_list( $study_id ) {
-		$raw = get_post_meta( $study_id, '_co360_ssa_centers_list', true );
-		return self::parse_centers_list( $raw );
+	public static function get_centers_seed( $study_id ) {
+		$raw = get_post_meta( $study_id, '_co360_ssa_centers_seed', true );
+		return self::parse_centers_seed( $raw );
+	}
+
+	public static function get_centers_for_study( $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, center_code, center_name, center_slug FROM {$table} WHERE estudio_id = %d ORDER BY center_name ASC",
+				$study_id
+			),
+			ARRAY_A
+		);
+		return $rows;
 	}
 
 	public static function get_debug_level() {

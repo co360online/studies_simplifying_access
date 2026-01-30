@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class DB {
-	const DB_VERSION = '1.1.0';
+	const DB_VERSION = '1.2.0';
 
 	public static function table_name( $table ) {
 		global $wpdb;
@@ -20,6 +20,8 @@ class DB {
 		$charset = $wpdb->get_charset_collate();
 		$inscriptions = self::table_name( CO360_SSA_DB_TABLE );
 		$codes = self::table_name( CO360_SSA_DB_CODES );
+		$centers = self::table_name( CO360_SSA_DB_CENTERS );
+		$study_seq = self::table_name( CO360_SSA_DB_STUDY_SEQ );
 		$center_seq = self::table_name( CO360_SSA_DB_CENTER_SEQ );
 
 		$sql1 = "CREATE TABLE {$inscriptions} (
@@ -27,7 +29,9 @@ class DB {
 			user_id BIGINT UNSIGNED NOT NULL,
 			estudio_id BIGINT UNSIGNED NOT NULL,
 			code_used VARCHAR(255) NULL,
+			center_id BIGINT UNSIGNED NULL,
 			center_code VARCHAR(10) NULL,
+			center_name VARCHAR(255) NULL,
 			investigator_code VARCHAR(50) NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
@@ -58,17 +62,41 @@ class DB {
 
 		dbDelta( $sql2 );
 
-		$sql3 = "CREATE TABLE {$center_seq} (
+		$sql3 = "CREATE TABLE {$centers} (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			estudio_id BIGINT UNSIGNED NOT NULL,
+			center_code VARCHAR(10) NOT NULL,
+			center_name VARCHAR(255) NOT NULL,
+			center_slug VARCHAR(255) NOT NULL,
+			source VARCHAR(20) NOT NULL DEFAULT 'seed',
+			created_by BIGINT UNSIGNED NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY estudio_slug (estudio_id, center_slug),
+			UNIQUE KEY estudio_code (estudio_id, center_code),
+			KEY estudio_id (estudio_id)
+		) {$charset};";
+
+		dbDelta( $sql3 );
+
+		$sql4 = "CREATE TABLE {$study_seq} (
+			estudio_id BIGINT UNSIGNED NOT NULL,
+			last_center_num INT UNSIGNED NOT NULL DEFAULT 0,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (estudio_id)
+		) {$charset};";
+
+		dbDelta( $sql4 );
+
+		$sql5 = "CREATE TABLE {$center_seq} (
 			estudio_id BIGINT UNSIGNED NOT NULL,
 			center_code VARCHAR(10) NOT NULL,
 			last_seq INT UNSIGNED NOT NULL DEFAULT 0,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
 			UNIQUE KEY estudio_center (estudio_id, center_code)
 		) {$charset};";
 
-		dbDelta( $sql3 );
+		dbDelta( $sql5 );
 
 		update_option( CO360_SSA_DBVER_KEY, self::DB_VERSION );
 	}

@@ -27,6 +27,8 @@ define( 'CO360_SSA_TOKEN_QUERY', 'co360_ssa_token' );
 define( 'CO360_SSA_CT_STUDY', 'co360_estudio' );
 define( 'CO360_SSA_DB_TABLE', 'co360_ssa_inscripciones' );
 define( 'CO360_SSA_DB_CODES', 'co360_ssa_codigos' );
+define( 'CO360_SSA_DB_CENTERS', 'co360_ssa_centers' );
+define( 'CO360_SSA_DB_STUDY_SEQ', 'co360_ssa_study_seq' );
 define( 'CO360_SSA_DB_CENTER_SEQ', 'co360_ssa_center_seq' );
 
 define( 'CO360_SSA_REDIRECT_COOKIE', 'co360_ssa_redirect' );

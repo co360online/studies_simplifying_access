@@ -249,6 +249,34 @@ class Shortcodes {
 	}
 
 	public function shortcode_login( $atts ) {
+
+
+		if ( isset( $_POST['co360_ssa_login_submit'] ) && isset( $_POST['co360_ssa_login_nonce'] ) ) {
+			if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_login_nonce'] ) ), 'co360_ssa_login_form' ) ) {
+				$username = Utils::sanitize_text( $_POST['username'] ?? '' );
+				if ( false !== strpos( $username, '@' ) ) {
+					$user = get_user_by( 'email', $username );
+					if ( $user ) {
+						$username = $user->user_login;
+					}
+				}
+
+				$creds = array(
+					'user_login' => $username,
+					'user_password' => Utils::sanitize_text( $_POST['password'] ?? '' ),
+					'remember' => ! empty( $_POST['remember'] ),
+				);
+
+				$user = wp_signon( $creds, is_ssl() );
+				if ( ! is_wp_error( $user ) ) {
+					$redirect_to = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['redirect_to'] ?? '' ) ), home_url( '/' ) );
+					// Respect redirect_to to continue after_login flow.
+					wp_safe_redirect( $redirect_to );
+					exit;
+				}
+			}
+		}
+
 		$atts = shortcode_atts(
 			array(
 				'title' => __( 'Iniciar sesión', CO360_SSA_TEXT_DOMAIN ),
@@ -297,7 +325,8 @@ class Shortcodes {
 			wp_send_json_error( array( 'message' => __( 'Credenciales inválidas.', CO360_SSA_TEXT_DOMAIN ) ) );
 		}
 
-		$redirect = ! empty( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : home_url();
-		wp_send_json_success( array( 'redirect' => $redirect ) );
+		$redirect_to = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['redirect_to'] ?? '' ) ), home_url( '/' ) );
+		// Respect redirect_to to continue after_login flow.
+		wp_send_json_success( array( 'redirect' => $redirect_to ) );
 	}
 }

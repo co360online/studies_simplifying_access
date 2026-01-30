@@ -1,0 +1,44 @@
+.co360-ssa-access,
+.co360-ssa-login,
+.co360-ssa-enrollment,
+.co360-ssa-stats {
+  border: 1px solid #e0e0e0;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: #fff;
+}
+
+.co360-ssa-form,
+.co360-ssa-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.co360-ssa-error {
+  color: #b32d2e;
+  margin: 4px 0;
+}
+
+.co360-ssa-login-error {
+  color: #b32d2e;
+}
+
+.co360-ssa-chart {
+  margin-top: 12px;
+}
+
+.co360-ssa-svg {
+  width: 100%;
+  height: auto;
+}
+
+.co360-ssa-bar {
+  fill: #4f46e5;
+}
+
+.co360-ssa-line {
+  fill: none;
+  stroke: #4f46e5;
+  stroke-width: 2;
+}

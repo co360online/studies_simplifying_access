@@ -20,6 +20,7 @@ class Shortcodes {
 		add_shortcode( 'co360_ssa_enrollment', array( $this, 'shortcode_enrollment' ) );
 		add_shortcode( 'co360_ssa_stats', array( $this, 'shortcode_stats' ) );
 		add_shortcode( 'co360_ssa_login', array( $this, 'shortcode_login' ) );
+		add_shortcode( 'co360_ssa_my_studies', array( $this, 'shortcode_my_studies' ) );
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_ajax_nopriv_co360_ssa_check_login', array( $this, 'ajax_check_login' ) );
@@ -38,6 +39,7 @@ class Shortcodes {
 				'title' => __( 'Acceso al estudio', CO360_SSA_TEXT_DOMAIN ),
 				'button_text' => __( 'Acceder', CO360_SSA_TEXT_DOMAIN ),
 				'require_code' => 1,
+				'my_studies_url' => '',
 			),
 			$atts,
 			'acceso_estudio'
@@ -121,6 +123,15 @@ class Shortcodes {
 					$this->redirect->safe_redirect( $after_url );
 				}
 			}
+		}
+
+		$user = wp_get_current_user();
+		$options = Utils::get_options();
+		$my_studies_url = '';
+		if ( ! empty( $atts['my_studies_url'] ) ) {
+			$my_studies_url = esc_url_raw( $atts['my_studies_url'] );
+		} elseif ( ! empty( $options['my_studies_page_url'] ?? '' ) ) {
+			$my_studies_url = $options['my_studies_page_url'];
 		}
 
 		ob_start();
@@ -300,6 +311,92 @@ class Shortcodes {
 
 		ob_start();
 		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-login.php';
+		return ob_get_clean();
+	}
+
+	public function shortcode_my_studies( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'title' => __( 'Mis estudios', CO360_SSA_TEXT_DOMAIN ),
+				'show_inactive' => 0,
+				'show_dates' => 1,
+				'layout' => 'cards',
+			),
+			$atts,
+			'co360_ssa_my_studies'
+		);
+
+		$layout = in_array( $atts['layout'], array( 'cards', 'list' ), true ) ? $atts['layout'] : 'cards';
+		$show_inactive = absint( $atts['show_inactive'] );
+		$show_dates = absint( $atts['show_dates'] );
+		$user = wp_get_current_user();
+		$entries = array();
+		$login_url = '';
+
+		if ( ! $user || ! $user->ID ) {
+			$options = Utils::get_options();
+			$current_url = get_permalink( get_queried_object_id() );
+			if ( ! empty( $options['login_page_url'] ) ) {
+				$login_url = add_query_arg( 'redirect_to', $current_url, $options['login_page_url'] );
+			} else {
+				$login_url = wp_login_url( $current_url );
+			}
+		} else {
+			global $wpdb;
+			$table = DB::table_name( CO360_SSA_DB_TABLE );
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT estudio_id, MAX(created_at) AS last_enrolled FROM {$table} WHERE user_id = %d GROUP BY estudio_id ORDER BY last_enrolled DESC",
+					$user->ID
+				),
+				ARRAY_A
+			);
+
+			foreach ( $rows as $row ) {
+				$study_id = absint( $row['estudio_id'] );
+				if ( ! $study_id ) {
+					continue;
+				}
+				$study = get_post( $study_id );
+				if ( ! $study || CO360_SSA_CT_STUDY !== $study->post_type ) {
+					continue;
+				}
+				$is_active = '1' === (string) get_post_meta( $study_id, '_co360_ssa_activo', true );
+				if ( ! $is_active && ! $show_inactive ) {
+					continue;
+				}
+
+				$study_page_id = absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) );
+				$crd_url = (string) get_post_meta( $study_id, '_co360_ssa_crd_url', true );
+				$study_url = '';
+				if ( $study_page_id > 0 ) {
+					$study_url = get_permalink( $study_page_id );
+				} elseif ( ! empty( $crd_url ) ) {
+					$study_url = $crd_url;
+				} else {
+					$post_type = get_post_type_object( $study->post_type );
+					if ( $post_type && $post_type->publicly_queryable ) {
+						$study_url = get_permalink( $study_id );
+					}
+				}
+
+				$date_display = '';
+				if ( $show_dates && ! empty( $row['last_enrolled'] ) ) {
+					$date_display = date_i18n( get_option( 'date_format' ), strtotime( $row['last_enrolled'] ) );
+				}
+
+				$entries[] = array(
+					'title' => $study->post_title,
+					'url' => $study_url,
+					'date' => $date_display,
+					'is_active' => $is_active,
+				);
+			}
+		}
+
+		wp_enqueue_style( 'co360-ssa-front' );
+		ob_start();
+		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-my-studies.php';
 		return ob_get_clean();
 	}
 

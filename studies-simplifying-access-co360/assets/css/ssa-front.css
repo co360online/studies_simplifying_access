@@ -1,7 +1,8 @@
 .co360-ssa-access,
 .co360-ssa-login,
 .co360-ssa-enrollment,
-.co360-ssa-stats {
+.co360-ssa-stats,
+.co360-ssa-my-studies {
   border: 1px solid #e0e0e0;
   padding: 16px;
   margin-bottom: 20px;
@@ -15,13 +16,124 @@
   gap: 12px;
 }
 
+.co360-ssa-form label,
+.co360-ssa-login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.co360-ssa-form input,
+.co360-ssa-login-form input {
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d6d6d6;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.co360-ssa-login-form .button,
+.co360-ssa-form .button {
+  width: 100%;
+  padding: 10px 16px;
+}
+
+.co360-ssa-login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff1f1;
+  border: 1px solid #f0b4b4;
+  color: #b32d2e;
+}
+
 .co360-ssa-error {
   color: #b32d2e;
   margin: 4px 0;
 }
 
-.co360-ssa-login-error {
-  color: #b32d2e;
+.co360-ssa-auth-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.co360-ssa-login {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.co360-ssa-auth-card {
+  max-width: 480px;
+  width: 100%;
+  padding: 24px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  background: #fff;
+}
+
+.co360-ssa-access-user {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  background: #f8fafc;
+  margin-bottom: 16px;
+}
+
+.co360-ssa-access-user p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.co360-ssa-my-studies__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.co360-ssa-my-studies--list .co360-ssa-my-studies__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.co360-ssa-my-studies__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  background: #fff;
+  align-items: center;
+}
+
+.co360-ssa-my-studies__item.is-inactive {
+  opacity: 0.65;
+}
+
+.co360-ssa-my-studies__title {
+  margin: 0 0 6px;
+}
+
+.co360-ssa-my-studies__date,
+.co360-ssa-my-studies__message {
+  margin: 0;
+  color: #5f6368;
+}
+
+.co360-ssa-my-studies__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .co360-ssa-chart {

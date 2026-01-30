@@ -260,9 +260,52 @@ class Shortcodes {
 	}
 
 	public function shortcode_login( $atts ) {
+		$redirect_to_raw = wp_unslash( $_REQUEST['redirect_to'] ?? '' );
+		$token = sanitize_text_field( wp_unslash( $_REQUEST['co360_ssa_token'] ?? '' ) );
+		if ( $token && false !== strpos( $redirect_to_raw, 'co360_ssa=after_login' ) && false === strpos( $redirect_to_raw, 'co360_ssa_token=' ) ) {
+			$redirect_to_raw = add_query_arg( 'co360_ssa_token', $token, $redirect_to_raw );
+		}
+		$redirect_to = wp_validate_redirect( esc_url_raw( $redirect_to_raw ), home_url( '/' ) );
 
+		$mode = sanitize_text_field( wp_unslash( $_GET['mode'] ?? '' ) );
+		$mode = $mode ? $mode : 'login';
+		$mode = in_array( $mode, array( 'login', 'lost', 'reset' ), true ) ? $mode : 'login';
 
-		if ( isset( $_POST['co360_ssa_login_submit'] ) && isset( $_POST['co360_ssa_login_nonce'] ) ) {
+		$notices = array();
+		$errors = array();
+		if ( 'lost' === $mode && isset( $_POST['co360_ssa_lostpass_submit'] ) ) {
+			$lost_result = $this->handle_lost_password( $redirect_to );
+			if ( is_wp_error( $lost_result ) ) {
+				$errors[] = $lost_result->get_error_message();
+			} else {
+				$notices[] = __( 'Si el email existe, te hemos enviado un enlace para restablecer la contraseña.', CO360_SSA_TEXT_DOMAIN );
+			}
+		}
+
+		if ( 'reset' === $mode && isset( $_POST['co360_ssa_resetpass_submit'] ) ) {
+			$reset_result = $this->handle_reset_password( $redirect_to );
+			if ( is_wp_error( $reset_result ) ) {
+				$errors[] = $reset_result->get_error_message();
+			} else {
+				wp_safe_redirect( $reset_result );
+				exit;
+			}
+		}
+
+		if ( 'reset' === $mode && ! isset( $_POST['co360_ssa_resetpass_submit'] ) ) {
+			$login = sanitize_text_field( wp_unslash( $_GET['login'] ?? '' ) );
+			$key = sanitize_text_field( wp_unslash( $_GET['key'] ?? '' ) );
+			if ( $login && $key ) {
+				$reset_check = check_password_reset_key( $key, $login );
+				if ( is_wp_error( $reset_check ) ) {
+					$errors[] = $reset_check->get_error_message();
+				}
+			} else {
+				$errors[] = __( 'El enlace de restablecimiento no es válido.', CO360_SSA_TEXT_DOMAIN );
+			}
+		}
+
+		if ( 'login' === $mode && isset( $_POST['co360_ssa_login_submit'] ) && isset( $_POST['co360_ssa_login_nonce'] ) ) {
 			if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_login_nonce'] ) ), 'co360_ssa_login_form' ) ) {
 				$username = Utils::sanitize_text( $_POST['username'] ?? '' );
 				if ( false !== strpos( $username, '@' ) ) {
@@ -280,7 +323,6 @@ class Shortcodes {
 
 				$user = wp_signon( $creds, is_ssl() );
 				if ( ! is_wp_error( $user ) ) {
-					$redirect_to = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['redirect_to'] ?? '' ) ), home_url( '/' ) );
 					// Respect redirect_to to continue after_login flow.
 					wp_safe_redirect( $redirect_to );
 					exit;
@@ -310,8 +352,103 @@ class Shortcodes {
 		wp_enqueue_style( 'co360-ssa-front' );
 
 		ob_start();
-		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-login.php';
+		if ( 'lost' === $mode ) {
+			include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-lost-password.php';
+		} elseif ( 'reset' === $mode ) {
+			include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-reset-password.php';
+		} else {
+			include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-login.php';
+		}
 		return ob_get_clean();
+	}
+
+	private function handle_lost_password( $redirect_to ) {
+		if ( ! isset( $_POST['co360_ssa_lostpass_nonce'] ) ) {
+			return new \WP_Error( 'invalid_nonce', __( 'No se pudo validar la solicitud.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_lostpass_nonce'] ) ), 'co360_ssa_lostpass_form' ) ) {
+			return new \WP_Error( 'invalid_nonce', __( 'No se pudo validar la solicitud.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+
+		$identifier = Utils::sanitize_text( $_POST['co360_ssa_user'] ?? '' );
+		if ( empty( $identifier ) ) {
+			return new \WP_Error( 'missing_user', __( 'Debes ingresar tu email o usuario.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+
+		$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) );
+		$rate_key = 'co360_ssa_lostpass_' . md5( $ip . '|' . $identifier );
+		if ( get_transient( $rate_key ) ) {
+			return true;
+		}
+
+		$user = null;
+		if ( false !== strpos( $identifier, '@' ) ) {
+			$user = get_user_by( 'email', sanitize_email( $identifier ) );
+		} else {
+			$user = get_user_by( 'login', $identifier );
+		}
+
+		if ( $user && ! is_wp_error( $user ) ) {
+			$key = get_password_reset_key( $user );
+			if ( ! is_wp_error( $key ) ) {
+				$reset_url = add_query_arg(
+					array(
+						'mode' => 'reset',
+						'login' => rawurlencode( $user->user_login ),
+						'key' => rawurlencode( $key ),
+						'redirect_to' => $redirect_to,
+					),
+					get_permalink( get_queried_object_id() )
+				);
+
+				$subject = __( 'Restablecer contraseña', CO360_SSA_TEXT_DOMAIN );
+				$message = sprintf(
+					"%s\n\n%s\n",
+					__( 'Para restablecer tu contraseña, haz clic en el siguiente enlace:', CO360_SSA_TEXT_DOMAIN ),
+					$reset_url
+				);
+				wp_mail( $user->user_email, $subject, $message );
+			}
+		}
+
+		set_transient( $rate_key, 1, 60 );
+		return true;
+	}
+
+	private function handle_reset_password( $redirect_to ) {
+		if ( ! isset( $_POST['co360_ssa_resetpass_nonce'] ) ) {
+			return new \WP_Error( 'invalid_nonce', __( 'No se pudo validar la solicitud.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_resetpass_nonce'] ) ), 'co360_ssa_resetpass_form' ) ) {
+			return new \WP_Error( 'invalid_nonce', __( 'No se pudo validar la solicitud.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+
+		$login = sanitize_text_field( wp_unslash( $_POST['login'] ?? '' ) );
+		$key = sanitize_text_field( wp_unslash( $_POST['key'] ?? '' ) );
+		$password_1 = Utils::sanitize_text( $_POST['password_1'] ?? '' );
+		$password_2 = Utils::sanitize_text( $_POST['password_2'] ?? '' );
+
+		if ( empty( $login ) || empty( $key ) ) {
+			return new \WP_Error( 'invalid_link', __( 'El enlace de restablecimiento no es válido.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+
+		$user = check_password_reset_key( $key, $login );
+		if ( is_wp_error( $user ) ) {
+			return $user;
+		}
+
+		if ( $password_1 !== $password_2 ) {
+			return new \WP_Error( 'password_mismatch', __( 'Las contraseñas no coinciden.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+		if ( strlen( $password_1 ) < 8 ) {
+			return new \WP_Error( 'password_short', __( 'La contraseña debe tener al menos 8 caracteres.', CO360_SSA_TEXT_DOMAIN ) );
+		}
+
+		reset_password( $user, $password_1 );
+		wp_set_current_user( $user->ID );
+		wp_set_auth_cookie( $user->ID, true );
+
+		return $redirect_to ? $redirect_to : home_url( '/' );
 	}
 
 	public function shortcode_my_studies( $atts ) {

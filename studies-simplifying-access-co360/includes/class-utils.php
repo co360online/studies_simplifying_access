@@ -91,7 +91,7 @@ class Utils {
 			'crd_url' => get_post_meta( $study_id, '_co360_ssa_crd_url', true ),
 			'activo' => get_post_meta( $study_id, '_co360_ssa_activo', true ),
 			'enroll_form_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) ),
-			'enroll_page_url' => get_post_meta( $study_id, '_co360_ssa_enroll_page_url', true ),
+			'enroll_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) ),
 			'code_mode' => get_post_meta( $study_id, '_co360_ssa_code_mode', true ),
 			'lock_email' => get_post_meta( $study_id, '_co360_ssa_lock_email', true ),
 			'study_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) ),
@@ -108,9 +108,9 @@ class Utils {
 
 	public static function get_redirect_target_for_study( $study_id ) {
 		$options = self::get_options();
-		$study_url = get_post_meta( $study_id, '_co360_ssa_enroll_page_url', true );
-		if ( ! empty( $study_url ) ) {
-			return $study_url;
+		$study_page_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) );
+		if ( $study_page_id ) {
+			return get_permalink( $study_page_id );
 		}
 		if ( ! empty( $options['enrollment_page_url'] ) ) {
 			return $options['enrollment_page_url'];

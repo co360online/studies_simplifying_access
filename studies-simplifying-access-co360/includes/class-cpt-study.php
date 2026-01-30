@@ -49,6 +49,9 @@ class CPT_Study {
 	public function render_metabox( $post ) {
 		wp_nonce_field( 'co360_ssa_study_meta', 'co360_ssa_study_meta_nonce' );
 		$meta = Utils::get_study_meta( $post->ID );
+		if ( empty( $meta['activo'] ) ) {
+			$meta['activo'] = '1';
+		}
 		?>
 		<p>
 			<strong><?php esc_html_e( 'Opción 1 – Prefijo del código', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
@@ -67,8 +70,17 @@ class CPT_Study {
 			<input type="number" name="co360_ssa_enroll_form_id" value="<?php echo esc_attr( $meta['enroll_form_id'] ); ?>" class="small-text">
 		</p>
 		<p>
-			<strong><?php esc_html_e( 'URL de inscripción (este estudio)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
-			<input type="url" name="co360_ssa_enroll_page_url" value="<?php echo esc_attr( $meta['enroll_page_url'] ); ?>" class="regular-text" placeholder="https://tusitio.com/inscripcion-estudio-x/">
+			<strong><?php esc_html_e( 'Página de inscripción', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<?php
+			wp_dropdown_pages(
+				array(
+					'name' => 'co360_ssa_enroll_page_id',
+					'show_option_none' => __( '-- Seleccionar --', CO360_SSA_TEXT_DOMAIN ),
+					'option_none_value' => '0',
+					'selected' => $meta['enroll_page_id'],
+				)
+			);
+			?>
 		</p>
 		<p>
 			<strong><?php esc_html_e( 'Modo de código', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
@@ -134,7 +146,7 @@ class CPT_Study {
 		update_post_meta( $post_id, '_co360_ssa_regex', Utils::sanitize_text( $_POST['co360_ssa_regex'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_crd_url', Utils::sanitize_url( $_POST['co360_ssa_crd_url'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_enroll_form_id', absint( $_POST['co360_ssa_enroll_form_id'] ?? 0 ) );
-		update_post_meta( $post_id, '_co360_ssa_enroll_page_url', Utils::sanitize_url( $_POST['co360_ssa_enroll_page_url'] ?? '' ) );
+		update_post_meta( $post_id, '_co360_ssa_enroll_page_id', absint( $_POST['co360_ssa_enroll_page_id'] ?? 0 ) );
 		update_post_meta( $post_id, '_co360_ssa_code_mode', ( isset( $_POST['co360_ssa_code_mode'] ) && 'list' === $_POST['co360_ssa_code_mode'] ) ? 'list' : 'single' );
 		update_post_meta( $post_id, '_co360_ssa_lock_email', isset( $_POST['co360_ssa_lock_email'] ) ? '1' : '0' );
 		update_post_meta( $post_id, '_co360_ssa_activo', isset( $_POST['co360_ssa_activo'] ) ? '1' : '0' );

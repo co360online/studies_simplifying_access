@@ -110,8 +110,6 @@ class Formidable {
 			( new Redirect() )->safe_redirect( get_permalink( $study_page_id ) );
 		}
 
-		if ( ! empty( $meta['crd_url'] ) ) {
-			( new Redirect() )->safe_redirect( $meta['crd_url'] );
-		}
+		( new Redirect() )->safe_redirect( home_url( '/' ) );
 	}
 }

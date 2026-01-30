@@ -105,7 +105,7 @@ $rows = $args ? $wpdb->get_results( $wpdb->prepare( $sql, $args ) ) : $wpdb->get
 ?>
 <div class="wrap co360-ssa-admin">
 	<h1><?php esc_html_e( 'Códigos', CO360_SSA_TEXT_DOMAIN ); ?></h1>
-	<p class="description"><?php esc_html_e( 'La configuración de inscripción y páginas (formulario, URL de inscripción, página del estudio y páginas protegidas) se define en cada estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+	<p class="description"><?php esc_html_e( 'La configuración de inscripción y páginas (formulario, página de inscripción, página del estudio y páginas protegidas) se define en cada estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
 	<form method="get" class="co360-ssa-filters">
 		<input type="hidden" name="page" value="co360-ssa-codes">
 		<label>

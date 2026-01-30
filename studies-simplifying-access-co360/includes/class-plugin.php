@@ -108,9 +108,8 @@ class Plugin {
 		}
 
 		$meta = Utils::get_study_meta( $study_id );
-		$form_id = absint( $meta['enroll_form_id'] );
-		$enroll_url = ! empty( $meta['enroll_page_url'] ) ? $meta['enroll_page_url'] : Utils::get_options()['enrollment_page_url'];
-		$crd_url = ! empty( $meta['crd_url'] ) ? $meta['crd_url'] : home_url( '/' );
+		$enroll_page_id = absint( $meta['enroll_page_id'] );
+		$enroll_url = $enroll_page_id ? get_permalink( $enroll_page_id ) : '';
 		$study_page_id = absint( $meta['study_page_id'] );
 		$study_page_url = $study_page_id ? get_permalink( $study_page_id ) : '';
 
@@ -118,19 +117,15 @@ class Plugin {
 			if ( $study_page_url ) {
 				$this->redirect->safe_redirect( $study_page_url );
 			}
-			$this->redirect->safe_redirect( $crd_url );
+			$this->redirect->safe_redirect( home_url( '/' ) );
 		}
 
-		if ( $form_id && $enroll_url ) {
+		if ( $enroll_url ) {
 			$target = Utils::add_query_arg_token( $enroll_url, $token );
 			$this->redirect->safe_redirect( $target );
 		}
 
-		$this->insert_enrollment_if_missing( $user->ID, $study_id, $context['code'] );
-		if ( $study_page_url ) {
-			$this->redirect->safe_redirect( $study_page_url );
-		}
-		$this->redirect->safe_redirect( $crd_url );
+		wp_die( esc_html__( 'Falta configurar la página de inscripción del estudio.', CO360_SSA_TEXT_DOMAIN ) );
 	}
 
 	private function render_after_login_debug( $context, $token, $user ) {

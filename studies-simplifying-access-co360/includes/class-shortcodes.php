@@ -327,7 +327,7 @@ class Shortcodes {
 		$options = array();
 		foreach ( $this->formidable_center_data['centers'] as $center ) {
 			$label = $center['center_code'] . ' — ' . $center['center_name'];
-			$options[ (string) $center['id'] ] = $label;
+			$options[ (string) $center['center_code'] ] = $label;
 		}
 		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );
 		$values['options'] = $options;

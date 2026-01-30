@@ -267,10 +267,11 @@ class Formidable {
 			}
 			return true;
 		}
-		if ( ! ctype_digit( (string) $selection ) ) {
+		$center_code = Utils::format_center_code( (string) $selection );
+		if ( '' === $center_code ) {
 			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido de la lista.', CO360_SSA_TEXT_DOMAIN ) );
 		}
-		$center = $this->get_center_by_id( $study_id, (int) $selection );
+		$center = $this->get_center_by_code( $study_id, $center_code );
 		if ( ! $center ) {
 			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido de la lista.', CO360_SSA_TEXT_DOMAIN ) );
 		}
@@ -299,10 +300,11 @@ class Formidable {
 			return $this->get_center_by_slug( $study_id, $slug );
 		}
 
-		if ( ! ctype_digit( (string) $selection ) ) {
+		$center_code = Utils::format_center_code( (string) $selection );
+		if ( '' === $center_code ) {
 			return null;
 		}
-		return $this->get_center_by_id( $study_id, (int) $selection );
+		return $this->get_center_by_code( $study_id, $center_code );
 	}
 
 	private function get_center_by_id( $study_id, $center_id ) {
@@ -313,6 +315,20 @@ class Formidable {
 				"SELECT id, center_code, center_name FROM {$table} WHERE estudio_id = %d AND id = %d",
 				$study_id,
 				$center_id
+			),
+			ARRAY_A
+		);
+		return $row ? $row : null;
+	}
+
+	private function get_center_by_code( $study_id, $center_code ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, center_code, center_name FROM {$table} WHERE estudio_id = %d AND center_code = %s",
+				$study_id,
+				$center_code
 			),
 			ARRAY_A
 		);

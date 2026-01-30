@@ -99,29 +99,32 @@ class Shortcodes {
 			}
 
 			if ( empty( $notices ) ) {
-				$user = Utils::create_or_get_user( $email );
-				if ( is_wp_error( $user ) ) {
-					$notices[] = $user->get_error_message();
-				} else {
-					wp_set_current_user( $user->ID );
-					wp_set_auth_cookie( $user->ID, true );
-
-					$token = $this->auth->set_context_token( $email, $study_id, $code );
-					$after_url = add_query_arg(
-						array(
-							CO360_SSA_REDIRECT_FLAG => 'after_login',
-							CO360_SSA_TOKEN_QUERY => $token,
-						),
-						home_url( '/' )
-					);
-
-					if ( 2 === Utils::get_debug_level() ) {
-						return $this->render_debug_panel( $after_url, $token );
-					}
-
-					// Always redirect access flow through after_login to enforce authentication before enrollment page.
-					$this->redirect->safe_redirect( $after_url );
+				$token = $this->auth->set_context_token( $email, $study_id, $code );
+				$user = get_user_by( 'email', $email );
+				if ( ! $user ) {
+					$options = Utils::get_options();
+					$registration_url = ! empty( $options['registration_page_url'] ) ? $options['registration_page_url'] : home_url( '/' );
+					$target = Utils::add_query_arg_token( $registration_url, $token );
+					$this->redirect->safe_redirect( $target );
 				}
+
+				wp_set_current_user( $user->ID );
+				wp_set_auth_cookie( $user->ID, true );
+
+				$after_url = add_query_arg(
+					array(
+						CO360_SSA_REDIRECT_FLAG => 'after_login',
+						CO360_SSA_TOKEN_QUERY => $token,
+					),
+					home_url( '/' )
+				);
+
+				if ( 2 === Utils::get_debug_level() ) {
+					return $this->render_debug_panel( $after_url, $token );
+				}
+
+				// Always redirect access flow through after_login to enforce authentication before enrollment page.
+				$this->redirect->safe_redirect( $after_url );
 			}
 		}
 

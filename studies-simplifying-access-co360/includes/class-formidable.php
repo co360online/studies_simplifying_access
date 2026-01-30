@@ -55,6 +55,32 @@ class Formidable {
 			return;
 		}
 
+		$options = Utils::get_options();
+		$registration_form_id = absint( $options['registration_form_id'] );
+		if ( $registration_form_id && $registration_form_id === absint( $form_id ) ) {
+			$token = isset( $_REQUEST[ CO360_SSA_TOKEN_QUERY ] ) ? sanitize_text_field( wp_unslash( $_REQUEST[ CO360_SSA_TOKEN_QUERY ] ) ) : '';
+			if ( $token ) {
+				$context = $this->auth->get_context_by_token( $token );
+				if ( $context ) {
+					$user = get_user_by( 'email', $context['email'] );
+					if ( $user && ! is_wp_error( $user ) ) {
+						wp_set_current_user( $user->ID );
+						wp_set_auth_cookie( $user->ID, true );
+
+						$after_url = add_query_arg(
+							array(
+								CO360_SSA_REDIRECT_FLAG => 'after_login',
+								CO360_SSA_TOKEN_QUERY => $token,
+							),
+							home_url( '/' )
+						);
+						( new Redirect() )->safe_redirect( $after_url );
+					}
+				}
+			}
+			return;
+		}
+
 		$token = isset( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ? sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ) ) : '';
 		if ( empty( $token ) ) {
 			return;

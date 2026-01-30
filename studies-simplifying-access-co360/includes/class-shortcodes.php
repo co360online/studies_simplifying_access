@@ -324,6 +324,10 @@ class Shortcodes {
 		if ( (int) $field->id !== (int) $this->formidable_center_data['field_id'] ) {
 			return $values;
 		}
+		if ( empty( $field->type ) || ! in_array( $field->type, array( 'select', 'dropdown' ), true ) ) {
+			return $values;
+		}
+		// Ejemplo HTML esperado: <option value="001">Hospital Clínico San Carlos (001)</option>
 		$options = array(
 			'' => __( 'Selecciona un centro', CO360_SSA_TEXT_DOMAIN ),
 		);
@@ -333,6 +337,11 @@ class Shortcodes {
 		}
 		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );
 		$values['options'] = $options;
+		if ( isset( $field->options ) && is_array( $field->options ) ) {
+			$field->options = $options;
+		} elseif ( isset( $field->field_options ) && is_array( $field->field_options ) ) {
+			$field->field_options['options'] = $options;
+		}
 		return $values;
 	}
 

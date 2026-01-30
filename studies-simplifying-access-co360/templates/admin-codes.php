@@ -19,7 +19,7 @@ $studies = get_posts(
 
 $selected_study = isset( $_GET['study_id'] ) ? absint( $_GET['study_id'] ) : 0;
 
-if ( isset( $_POST['co360_ssa_codes_nonce'] ) && wp_verify_nonce( sanitize_key( $_POST['co360_ssa_codes_nonce'] ), 'co360_ssa_codes' ) ) {
+if ( isset( $_POST['co360_ssa_codes_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_codes_nonce'] ) ), 'co360_ssa_codes' ) ) {
 	$action = sanitize_text_field( wp_unslash( $_POST['co360_ssa_codes_action'] ?? '' ) );
 
 	if ( 'add_single' === $action ) {

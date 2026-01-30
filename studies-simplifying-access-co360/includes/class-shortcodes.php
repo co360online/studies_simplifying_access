@@ -44,21 +44,23 @@ class Shortcodes {
 		);
 
 		$study_id = absint( $atts['study_id'] );
-		if ( ! $study_id ) {
-			return '<div class="co360-ssa-error">' . esc_html__( 'Study ID requerido.', CO360_SSA_TEXT_DOMAIN ) . '</div>';
-		}
-		$study = get_post( $study_id );
-		if ( ! $study || CO360_SSA_CT_STUDY !== $study->post_type ) {
-			return '<div class="co360-ssa-error">' . esc_html__( 'Estudio inválido.', CO360_SSA_TEXT_DOMAIN ) . '</div>';
-		}
-		$meta = Utils::get_study_meta( $study_id );
-		if ( '1' !== (string) $meta['activo'] ) {
-			return '<div class="co360-ssa-error">' . esc_html__( 'Estudio inactivo.', CO360_SSA_TEXT_DOMAIN ) . '</div>';
+		$study = null;
+		$meta = array();
+
+		if ( $study_id ) {
+			$study = get_post( $study_id );
+			if ( ! $study || CO360_SSA_CT_STUDY !== $study->post_type ) {
+				return '<div class="co360-ssa-error">' . esc_html__( 'Estudio inválido.', CO360_SSA_TEXT_DOMAIN ) . '</div>';
+			}
+			$meta = Utils::get_study_meta( $study_id );
+			if ( '1' !== (string) $meta['activo'] ) {
+				return '<div class="co360-ssa-error">' . esc_html__( 'Estudio inactivo.', CO360_SSA_TEXT_DOMAIN ) . '</div>';
+			}
 		}
 
 		$notices = array();
 
-		if ( isset( $_POST['co360_ssa_access_nonce'] ) && wp_verify_nonce( sanitize_key( $_POST['co360_ssa_access_nonce'] ), 'co360_ssa_access' ) ) {
+		if ( isset( $_POST['co360_ssa_access_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_access_nonce'] ) ), 'co360_ssa_access' ) ) {
 			$email = Utils::sanitize_email( $_POST['co360_ssa_email'] ?? '' );
 			$code = Utils::sanitize_text( $_POST['co360_ssa_code'] ?? '' );
 
@@ -70,10 +72,28 @@ class Shortcodes {
 			}
 
 			if ( empty( $notices ) && ( $atts['require_code'] || $code ) ) {
-				$validation = $this->auth->validate_code_for_study( $study_id, $email, $code );
-				if ( is_wp_error( $validation ) ) {
-					$notices[] = $validation->get_error_message();
+				if ( ! $study_id ) {
+					$study_lookup = $this->auth->find_study_for_code( $email, $code );
+					if ( is_wp_error( $study_lookup ) ) {
+						$notices[] = $study_lookup->get_error_message();
+					} else {
+						$study_id = absint( $study_lookup );
+						$study = get_post( $study_id );
+						$meta = Utils::get_study_meta( $study_id );
+						if ( '1' !== (string) $meta['activo'] ) {
+							$notices[] = __( 'Estudio inactivo.', CO360_SSA_TEXT_DOMAIN );
+						}
+					}
+				} else {
+					$validation = $this->auth->validate_code_for_study( $study_id, $email, $code );
+					if ( is_wp_error( $validation ) ) {
+						$notices[] = $validation->get_error_message();
+					}
 				}
+			}
+
+			if ( empty( $notices ) && ! $study_id ) {
+				$notices[] = __( 'El código no corresponde a ningún estudio.', CO360_SSA_TEXT_DOMAIN );
 			}
 
 			if ( empty( $notices ) ) {
@@ -252,8 +272,16 @@ class Shortcodes {
 	public function ajax_check_login() {
 		check_ajax_referer( 'co360_ssa_login', 'nonce' );
 
+		$username = Utils::sanitize_text( $_POST['username'] ?? '' );
+		if ( false !== strpos( $username, '@' ) ) {
+			$user = get_user_by( 'email', $username );
+			if ( $user ) {
+				$username = $user->user_login;
+			}
+		}
+
 		$creds = array(
-			'user_login' => Utils::sanitize_text( $_POST['username'] ?? '' ),
+			'user_login' => $username,
 			'user_password' => Utils::sanitize_text( $_POST['password'] ?? '' ),
 			'remember' => ! empty( $_POST['remember'] ),
 		);

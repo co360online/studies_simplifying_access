@@ -16,6 +16,7 @@ class Auth {
 
 	public function add_query_var( $vars ) {
 		$vars[] = CO360_SSA_TOKEN_QUERY;
+		$vars[] = CO360_SSA_REDIRECT_FLAG;
 		return $vars;
 	}
 
@@ -77,6 +78,81 @@ class Auth {
 		return true;
 	}
 
+	public function find_study_for_code( $email, $code ) {
+		global $wpdb;
+		$code = sanitize_text_field( $code );
+		$email = Utils::normalize_email( $email );
+		$table = DB::table_name( CO360_SSA_DB_CODES );
+		$now = current_time( 'mysql' );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE code = %s AND active = 1 LIMIT 1",
+				$code
+			)
+		);
+
+		if ( $row ) {
+			if ( $row->expires_at && $row->expires_at < $now ) {
+				return new \WP_Error( 'expired_code', __( 'El código ha expirado.', CO360_SSA_TEXT_DOMAIN ) );
+			}
+
+			$study_id = absint( $row->estudio_id );
+			$meta = Utils::get_study_meta( $study_id );
+			if ( '1' === (string) $meta['lock_email'] ) {
+				if ( $row->assigned_email && Utils::normalize_email( $row->assigned_email ) !== $email ) {
+					return new \WP_Error( 'email_locked', __( 'El código está bloqueado para otro email.', CO360_SSA_TEXT_DOMAIN ) );
+				}
+				if ( empty( $row->assigned_email ) ) {
+					$wpdb->update(
+						$table,
+						array( 'assigned_email' => $email ),
+						array( 'id' => $row->id ),
+						array( '%s' ),
+						array( '%d' )
+					);
+				}
+			}
+
+			if ( $row->used_count >= $row->max_uses ) {
+				if ( $this->is_email_enrolled( $email, $study_id ) ) {
+					return $study_id;
+				}
+				return new \WP_Error( 'max_uses', __( 'El código ya alcanzó su límite de usos.', CO360_SSA_TEXT_DOMAIN ) );
+			}
+
+			return $study_id;
+		}
+
+		$studies = get_posts(
+			array(
+				'post_type' => CO360_SSA_CT_STUDY,
+				'numberposts' => -1,
+				'meta_query' => array(
+					array(
+						'key' => '_co360_ssa_activo',
+						'value' => '1',
+					),
+				),
+			)
+		);
+
+		foreach ( $studies as $study ) {
+			$meta = Utils::get_study_meta( $study->ID );
+			if ( ! empty( $meta['regex'] ) ) {
+				$pattern = '/' . str_replace( '/', '\/', $meta['regex'] ) . '/';
+				if ( preg_match( $pattern, $code ) ) {
+					return $study->ID;
+				}
+			}
+			if ( ! empty( $meta['prefijo'] ) && 0 === stripos( $code, $meta['prefijo'] ) ) {
+				return $study->ID;
+			}
+		}
+
+		return new \WP_Error( 'invalid_code', __( 'El código no corresponde a ningún estudio.', CO360_SSA_TEXT_DOMAIN ) );
+	}
+
 	private function validate_list_code( $study_id, $email, $code, $lock_email ) {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_CODES );
@@ -118,6 +194,24 @@ class Auth {
 		}
 
 		return true;
+	}
+
+
+	private function is_email_enrolled( $email, $study_id ) {
+		$user = get_user_by( 'email', $email );
+		if ( ! $user ) {
+			return false;
+		}
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_TABLE );
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND estudio_id = %d",
+				$user->ID,
+				$study_id
+			)
+		);
+		return (bool) $count;
 	}
 
 	public function finalize_list_code_usage( $study_id, $code ) {

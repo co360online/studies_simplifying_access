@@ -32,6 +32,8 @@ define( 'CO360_SSA_REDIRECT_COOKIE', 'co360_ssa_redirect' );
 
 define( 'CO360_SSA_DEBUG_QUERY', 'ssa_debug' );
 
+define( 'CO360_SSA_REDIRECT_FLAG', 'co360_ssa' );
+
 define( 'CO360_SSA_PURGE_ON_UNINSTALL', false );
 
 require_once CO360_SSA_PLUGIN_PATH . 'includes/class-utils.php';

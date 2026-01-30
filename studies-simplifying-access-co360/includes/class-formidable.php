@@ -104,5 +104,9 @@ class Formidable {
 		if ( 'list' === $meta['code_mode'] ) {
 			$this->auth->finalize_list_code_usage( $study_id, $context['code'] );
 		}
+
+		if ( ! empty( $meta['crd_url'] ) ) {
+			( new Redirect() )->safe_redirect( $meta['crd_url'] );
+		}
 	}
 }

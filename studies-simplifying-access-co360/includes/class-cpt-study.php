@@ -93,7 +93,7 @@ class CPT_Study {
 	}
 
 	public function save_metabox( $post_id ) {
-		if ( ! isset( $_POST['co360_ssa_study_meta_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['co360_ssa_study_meta_nonce'] ), 'co360_ssa_study_meta' ) ) {
+		if ( ! isset( $_POST['co360_ssa_study_meta_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['co360_ssa_study_meta_nonce'] ) ), 'co360_ssa_study_meta' ) ) {
 			return;
 		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {

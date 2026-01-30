@@ -277,6 +277,12 @@ class Shortcodes {
 			10,
 			2
 		);
+		add_filter(
+			'frm_setup_edit_fields_vars',
+			array( $this, 'inject_formidable_centers' ),
+			10,
+			2
+		);
 		$this->formidable_token_data = array(
 			'form_id' => (int) $form_id,
 			'hidden' => $hidden,
@@ -291,6 +297,7 @@ class Shortcodes {
 
 		remove_filter( 'frm_form_content', array( $this, 'inject_formidable_token' ), 10 );
 		remove_filter( 'frm_setup_new_fields_vars', array( $this, 'inject_formidable_centers' ), 10 );
+		remove_filter( 'frm_setup_edit_fields_vars', array( $this, 'inject_formidable_centers' ), 10 );
 		$this->formidable_token_data = null;
 		$this->formidable_center_data = null;
 
@@ -337,10 +344,12 @@ class Shortcodes {
 		}
 		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );
 		$values['options'] = $options;
+		$values['use_key'] = true;
 		if ( isset( $field->options ) && is_array( $field->options ) ) {
 			$field->options = $options;
 		} elseif ( isset( $field->field_options ) && is_array( $field->field_options ) ) {
 			$field->field_options['options'] = $options;
+			$field->field_options['use_key'] = true;
 		}
 		return $values;
 	}

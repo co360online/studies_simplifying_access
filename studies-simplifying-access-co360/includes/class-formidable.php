@@ -105,11 +105,15 @@ class Formidable {
 			$this->auth->finalize_list_code_usage( $study_id, $context['code'] );
 		}
 
-		$study_page_id = absint( $meta['study_page_id'] );
-		if ( $study_page_id ) {
+		// Use page IDs (_co360_ssa_*_page_id) and get_permalink() to avoid URL inconsistencies.
+		$study_page_id = absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) );
+		$crd_url = (string) get_post_meta( $study_id, '_co360_ssa_crd_url', true );
+		if ( $study_page_id > 0 ) {
 			( new Redirect() )->safe_redirect( get_permalink( $study_page_id ) );
 		}
-
+		if ( ! empty( $crd_url ) ) {
+			( new Redirect() )->safe_redirect( $crd_url );
+		}
 		( new Redirect() )->safe_redirect( home_url( '/' ) );
 	}
 }

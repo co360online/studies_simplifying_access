@@ -107,25 +107,27 @@ class Plugin {
 			$this->redirect->safe_redirect( home_url( '/' ) );
 		}
 
-		$meta = Utils::get_study_meta( $study_id );
-		$enroll_page_id = absint( $meta['enroll_page_id'] );
-		$enroll_url = $enroll_page_id ? get_permalink( $enroll_page_id ) : '';
-		$study_page_id = absint( $meta['study_page_id'] );
-		$study_page_url = $study_page_id ? get_permalink( $study_page_id ) : '';
+		// Use page IDs (_co360_ssa_*_page_id) and get_permalink() to avoid URL inconsistencies.
+		$study_page_id = absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) );
+		$enroll_page_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) );
+		$crd_url = (string) get_post_meta( $study_id, '_co360_ssa_crd_url', true );
 
 		if ( $this->user_has_enrollment( $user->ID, $study_id ) ) {
-			if ( $study_page_url ) {
-				$this->redirect->safe_redirect( $study_page_url );
+			if ( $study_page_id > 0 ) {
+				$this->redirect->safe_redirect( get_permalink( $study_page_id ) );
+			}
+			if ( ! empty( $crd_url ) ) {
+				$this->redirect->safe_redirect( $crd_url );
 			}
 			$this->redirect->safe_redirect( home_url( '/' ) );
 		}
 
-		if ( $enroll_url ) {
-			$target = Utils::add_query_arg_token( $enroll_url, $token );
+		if ( $enroll_page_id > 0 ) {
+			$target = Utils::add_query_arg_token( get_permalink( $enroll_page_id ), $token );
 			$this->redirect->safe_redirect( $target );
 		}
 
-		wp_die( esc_html__( 'Falta configurar la página de inscripción del estudio.', CO360_SSA_TEXT_DOMAIN ) );
+		wp_die( esc_html__( 'Falta configurar Página de inscripción en el Estudio.', CO360_SSA_TEXT_DOMAIN ) );
 	}
 
 	private function render_after_login_debug( $context, $token, $user ) {
@@ -195,7 +197,7 @@ class Plugin {
 			$study_page_id = absint( get_post_meta( $protected_study_id, '_co360_ssa_study_page_id', true ) );
 			$access_url = $study_page_id ? get_permalink( $study_page_id ) : home_url( '/' );
 			wp_die(
-				wp_kses_post( __( 'Acceso denegado. Debes estar inscrito en el estudio para ver esta página.', CO360_SSA_TEXT_DOMAIN ) ) .
+				wp_kses_post( __( 'No tienes acceso a este estudio.', CO360_SSA_TEXT_DOMAIN ) ) .
 				' <a href="' . esc_url( $access_url ) . '">' . esc_html__( 'Ir a la página del estudio', CO360_SSA_TEXT_DOMAIN ) . '</a>'
 			);
 		}

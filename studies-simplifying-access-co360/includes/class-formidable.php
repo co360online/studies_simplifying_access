@@ -19,7 +19,7 @@ class Formidable {
 	}
 
 	public function validate_entry( $errors, $values, $exclude ) {
-		if ( ! class_exists( 'FrmEntry' ) ) {
+		if ( ! class_exists( '\FrmEntry' ) ) {
 			return $errors;
 		}
 
@@ -65,7 +65,7 @@ class Formidable {
 	 * Se usa porque garantiza que la entrada existe y evita depender de hooks de validación.
 	 */
 	public function after_create_entry( $entry_id, $form_id ) {
-		if ( ! class_exists( 'FrmEntry' ) ) {
+		if ( ! class_exists( '\FrmEntry' ) ) {
 			return;
 		}
 
@@ -138,7 +138,7 @@ class Formidable {
 	}
 
 	public function handle_registration_after_entry( $entry_id, $form_id ) {
-		if ( ! class_exists( 'FrmEntry' ) ) {
+		if ( ! class_exists( '\FrmEntry' ) ) {
 			return;
 		}
 
@@ -159,7 +159,7 @@ class Formidable {
 		}
 
 		$new_user_id = 0;
-		$entry = FrmEntry::getOne( $entry_id );
+		$entry = \FrmEntry::getOne( $entry_id );
 		if ( $entry && isset( $entry->user_id ) ) {
 			$new_user_id = (int) $entry->user_id;
 		}

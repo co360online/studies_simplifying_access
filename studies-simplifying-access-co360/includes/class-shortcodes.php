@@ -16,6 +16,7 @@ class Shortcodes {
 
 	public function register() {
 		add_shortcode( 'acceso_estudio', array( $this, 'shortcode_access' ) );
+		add_shortcode( 'co360_ssa_registration_gate', array( $this, 'shortcode_registration_gate' ) );
 		add_shortcode( 'co360_ssa_form_context', array( $this, 'shortcode_form_context' ) );
 		add_shortcode( 'co360_ssa_enrollment', array( $this, 'shortcode_enrollment' ) );
 		add_shortcode( 'co360_ssa_stats', array( $this, 'shortcode_stats' ) );
@@ -105,6 +106,9 @@ class Shortcodes {
 					$options = Utils::get_options();
 					$registration_url = ! empty( $options['registration_page_url'] ) ? $options['registration_page_url'] : home_url( '/' );
 					$target = Utils::add_query_arg_token( $registration_url, $token );
+					if ( 2 === Utils::get_debug_level() ) {
+						return $this->render_debug_panel( $target, $token );
+					}
 					$this->redirect->safe_redirect( $target );
 				}
 
@@ -140,6 +144,28 @@ class Shortcodes {
 		ob_start();
 		wp_enqueue_style( 'co360-ssa-front' );
 		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-access.php';
+		return ob_get_clean();
+	}
+
+	public function shortcode_registration_gate( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'strict' => 1,
+				'message_ok' => __( 'Completa tu registro para acceder al estudio.', CO360_SSA_TEXT_DOMAIN ),
+				'message_fail' => __( 'El acceso al registro es solo por invitación. Ingresa desde el formulario de acceso.', CO360_SSA_TEXT_DOMAIN ),
+			),
+			$atts,
+			'co360_ssa_registration_gate'
+		);
+
+		$token = get_query_var( CO360_SSA_TOKEN_QUERY );
+		$context = $this->auth->get_context_by_token( $token );
+		$strict = absint( $atts['strict'] );
+		$is_valid = (bool) $context;
+
+		wp_enqueue_style( 'co360-ssa-front' );
+		ob_start();
+		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-registration-gate.php';
 		return ob_get_clean();
 	}
 

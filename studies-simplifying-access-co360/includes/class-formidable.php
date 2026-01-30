@@ -15,6 +15,7 @@ class Formidable {
 	public function register() {
 		add_filter( 'frm_validate_entry', array( $this, 'validate_entry' ), 10, 3 );
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
+		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
 	}
 
 	public function validate_entry( $errors, $values, $exclude ) {
@@ -52,32 +53,6 @@ class Formidable {
 	 */
 	public function after_create_entry( $entry_id, $form_id ) {
 		if ( ! class_exists( 'FrmEntry' ) ) {
-			return;
-		}
-
-		$options = Utils::get_options();
-		$registration_form_id = absint( $options['registration_form_id'] );
-		if ( $registration_form_id && $registration_form_id === absint( $form_id ) ) {
-			$token = isset( $_REQUEST[ CO360_SSA_TOKEN_QUERY ] ) ? sanitize_text_field( wp_unslash( $_REQUEST[ CO360_SSA_TOKEN_QUERY ] ) ) : '';
-			if ( $token ) {
-				$context = $this->auth->get_context_by_token( $token );
-				if ( $context ) {
-					$user = get_user_by( 'email', $context['email'] );
-					if ( $user && ! is_wp_error( $user ) ) {
-						wp_set_current_user( $user->ID );
-						wp_set_auth_cookie( $user->ID, true );
-
-						$after_url = add_query_arg(
-							array(
-								CO360_SSA_REDIRECT_FLAG => 'after_login',
-								CO360_SSA_TOKEN_QUERY => $token,
-							),
-							home_url( '/' )
-						);
-						( new Redirect() )->safe_redirect( $after_url );
-					}
-				}
-			}
 			return;
 		}
 
@@ -141,5 +116,58 @@ class Formidable {
 			( new Redirect() )->safe_redirect( $crd_url );
 		}
 		( new Redirect() )->safe_redirect( home_url( '/' ) );
+	}
+
+	public function handle_registration_after_entry( $entry_id, $form_id ) {
+		if ( ! class_exists( 'FrmEntry' ) ) {
+			return;
+		}
+
+		$options = Utils::get_options();
+		$registration_form_id = absint( $options['registration_form_id'] );
+		if ( ! $registration_form_id || $registration_form_id !== absint( $form_id ) ) {
+			return;
+		}
+
+		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( empty( $token ) ) {
+			return;
+		}
+
+		$context = $this->auth->get_context_by_token( $token );
+		if ( ! $context ) {
+			return;
+		}
+
+		$new_user_id = 0;
+		$entry = FrmEntry::getOne( $entry_id );
+		if ( $entry && isset( $entry->user_id ) ) {
+			$new_user_id = (int) $entry->user_id;
+		}
+		if ( ! $new_user_id ) {
+			$user = get_user_by( 'email', $context['email'] );
+			$new_user_id = $user ? (int) $user->ID : 0;
+		}
+
+		if ( ! $new_user_id ) {
+			return;
+		}
+
+		$user_data = get_userdata( $new_user_id );
+		if ( ! $user_data || Utils::normalize_email( $user_data->user_email ) !== Utils::normalize_email( $context['email'] ) ) {
+			return;
+		}
+
+		wp_set_current_user( $new_user_id );
+		wp_set_auth_cookie( $new_user_id, true );
+
+		$after_url = add_query_arg(
+			array(
+				CO360_SSA_REDIRECT_FLAG => 'after_login',
+				CO360_SSA_TOKEN_QUERY => $token,
+			),
+			home_url( '/' )
+		);
+		( new Redirect() )->safe_redirect( $after_url );
 	}
 }

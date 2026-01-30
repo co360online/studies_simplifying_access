@@ -9,7 +9,7 @@ jQuery(function ($) {
       username: $form.find('[name="username"]').val(),
       password: $form.find('[name="password"]').val(),
       remember: $form.find('[name="remember"]').is(':checked') ? 1 : 0,
-      redirect_to: $form.data('redirect') || ''
+      redirect_to: $form.find('[name="redirect_to"]').val() || $form.data('redirect') || ''
     };
 
     $.post(co360SSA.ajaxUrl, data)

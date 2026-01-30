@@ -2,8 +2,12 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-$redirect_to_raw = $_GET['redirect_to'] ?? '';
-$redirect_to = wp_validate_redirect( esc_url_raw( wp_unslash( $redirect_to_raw ) ), home_url( '/' ) );
+$redirect_to_raw = wp_unslash( $_GET['redirect_to'] ?? '' );
+$token = sanitize_text_field( wp_unslash( $_GET['co360_ssa_token'] ?? '' ) );
+if ( $token && false !== strpos( $redirect_to_raw, 'co360_ssa=after_login' ) && false === strpos( $redirect_to_raw, 'co360_ssa_token=' ) ) {
+	$redirect_to_raw = add_query_arg( 'co360_ssa_token', $token, $redirect_to_raw );
+}
+$redirect_to = wp_validate_redirect( esc_url_raw( $redirect_to_raw ), home_url( '/' ) );
 ?>
 <div class="co360-ssa-login">
 	<?php if ( ! empty( $atts['title'] ) ) : ?>

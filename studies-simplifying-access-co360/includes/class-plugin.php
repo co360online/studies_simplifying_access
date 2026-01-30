@@ -67,7 +67,7 @@ class Plugin {
 		}
 
 		if ( ! $user || ! $user->ID ) {
-			$after = add_query_arg(
+			$after_url = add_query_arg(
 				array(
 					CO360_SSA_REDIRECT_FLAG => 'after_login',
 					CO360_SSA_TOKEN_QUERY => $token,
@@ -76,9 +76,10 @@ class Plugin {
 			);
 			$options = Utils::get_options();
 			if ( ! empty( $options['login_page_url'] ) ) {
-				$login_url = add_query_arg( 'redirect_to', $after, $options['login_page_url'] );
+				// Fix redirect_to encoding so token remains inside redirect_to after login.
+				$login_url = add_query_arg( array( 'redirect_to' => $after_url ), $options['login_page_url'] );
 			} else {
-				$login_url = wp_login_url( $after );
+				$login_url = wp_login_url( $after_url );
 			}
 			$this->redirect->safe_redirect( $login_url );
 		}

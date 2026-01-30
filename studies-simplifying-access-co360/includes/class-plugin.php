@@ -55,8 +55,10 @@ class Plugin {
 		$debug = Utils::get_debug_level();
 		$user = wp_get_current_user();
 
-		if ( $debug >= 1 ) {
+		if ( 2 === $debug ) {
 			$this->render_after_login_debug( $context, $token, $user );
+		} elseif ( 1 === $debug ) {
+			Utils::log( 'after_login debug: token=' . $token );
 		}
 
 		if ( ! $context ) {
@@ -81,8 +83,22 @@ class Plugin {
 		}
 
 		if ( Utils::normalize_email( $user->user_email ) !== Utils::normalize_email( $context['email'] ) ) {
-			$logout_url = wp_logout_url( add_query_arg( 'ssa_error', 'email_mismatch', home_url( '/' ) ) );
-			$this->redirect->safe_redirect( $logout_url );
+			wp_logout();
+			$after_url = add_query_arg(
+				array(
+					CO360_SSA_REDIRECT_FLAG => 'after_login',
+					CO360_SSA_TOKEN_QUERY => $token,
+					'ssa_error' => 'email_mismatch',
+				),
+				home_url( '/' )
+			);
+			$options = Utils::get_options();
+			if ( ! empty( $options['login_page_url'] ) ) {
+				$login_url = add_query_arg( 'redirect_to', $after_url, $options['login_page_url'] );
+			} else {
+				$login_url = wp_login_url( $after_url );
+			}
+			$this->redirect->safe_redirect( $login_url );
 		}
 
 		$study_id = absint( $context['study_id'] );

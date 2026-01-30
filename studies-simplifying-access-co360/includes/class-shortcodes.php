@@ -105,14 +105,20 @@ class Shortcodes {
 					wp_set_auth_cookie( $user->ID, true );
 
 					$token = $this->auth->set_context_token( $email, $study_id, $code );
-					$target = Utils::get_redirect_target_for_study( $study_id );
-					$target = Utils::add_query_arg_token( $target, $token );
+					$after_url = add_query_arg(
+						array(
+							CO360_SSA_REDIRECT_FLAG => 'after_login',
+							CO360_SSA_TOKEN_QUERY => $token,
+						),
+						home_url( '/' )
+					);
 
 					if ( 2 === Utils::get_debug_level() ) {
-						return $this->render_debug_panel( $target, $token );
+						return $this->render_debug_panel( $after_url, $token );
 					}
 
-					$this->redirect->safe_redirect( $target );
+					// Always redirect access flow through after_login to enforce authentication before enrollment page.
+					$this->redirect->safe_redirect( $after_url );
 				}
 			}
 		}

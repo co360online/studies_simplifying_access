@@ -324,9 +324,11 @@ class Shortcodes {
 		if ( (int) $field->id !== (int) $this->formidable_center_data['field_id'] ) {
 			return $values;
 		}
-		$options = array();
+		$options = array(
+			'' => __( 'Selecciona un centro', CO360_SSA_TEXT_DOMAIN ),
+		);
 		foreach ( $this->formidable_center_data['centers'] as $center ) {
-			$label = $center['center_code'] . ' — ' . $center['center_name'];
+			$label = $center['center_name'] . ' (' . $center['center_code'] . ')';
 			$options[ (string) $center['center_code'] ] = $label;
 		}
 		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );

@@ -91,12 +91,41 @@ class Utils {
 			'crd_url' => get_post_meta( $study_id, '_co360_ssa_crd_url', true ),
 			'activo' => get_post_meta( $study_id, '_co360_ssa_activo', true ),
 			'enroll_form_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) ),
+			'center_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) ),
+			'centers_list' => get_post_meta( $study_id, '_co360_ssa_centers_list', true ),
 			'enroll_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) ),
 			'code_mode' => get_post_meta( $study_id, '_co360_ssa_code_mode', true ),
 			'lock_email' => get_post_meta( $study_id, '_co360_ssa_lock_email', true ),
 			'study_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) ),
 			'protected_pages' => get_post_meta( $study_id, '_co360_ssa_protected_pages', true ),
 		);
+	}
+
+	public static function parse_centers_list( $raw ) {
+		$lines = preg_split( '/\r\n|\r|\n/', (string) $raw );
+		$centers = array();
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+			$parts = array_map( 'trim', explode( '|', $line, 2 ) );
+			$code = $parts[0] ?? '';
+			$name = $parts[1] ?? '';
+			if ( '' === $code ) {
+				continue;
+			}
+			$centers[] = array(
+				'code' => $code,
+				'name' => $name,
+			);
+		}
+		return $centers;
+	}
+
+	public static function get_centers_list( $study_id ) {
+		$raw = get_post_meta( $study_id, '_co360_ssa_centers_list', true );
+		return self::parse_centers_list( $raw );
 	}
 
 	public static function get_debug_level() {

@@ -70,6 +70,14 @@ class CPT_Study {
 			<input type="number" name="co360_ssa_enroll_form_id" value="<?php echo esc_attr( $meta['enroll_form_id'] ); ?>" class="small-text">
 		</p>
 		<p>
+			<strong><?php esc_html_e( 'ID del campo centro (Formidable)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<input type="number" name="co360_ssa_center_field_id" value="<?php echo esc_attr( $meta['center_field_id'] ); ?>" class="small-text">
+		</p>
+		<p>
+			<strong><?php esc_html_e( 'Centros del estudio (CODE|Nombre por línea)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<textarea name="co360_ssa_centers_list" class="large-text" rows="6"><?php echo esc_textarea( $meta['centers_list'] ); ?></textarea>
+		</p>
+		<p>
 			<strong><?php esc_html_e( 'Página de inscripción', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
 			<?php
 			wp_dropdown_pages(
@@ -146,6 +154,8 @@ class CPT_Study {
 		update_post_meta( $post_id, '_co360_ssa_regex', Utils::sanitize_text( $_POST['co360_ssa_regex'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_crd_url', Utils::sanitize_url( $_POST['co360_ssa_crd_url'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_enroll_form_id', absint( $_POST['co360_ssa_enroll_form_id'] ?? 0 ) );
+		update_post_meta( $post_id, '_co360_ssa_center_field_id', absint( $_POST['co360_ssa_center_field_id'] ?? 0 ) );
+		update_post_meta( $post_id, '_co360_ssa_centers_list', sanitize_textarea_field( wp_unslash( $_POST['co360_ssa_centers_list'] ?? '' ) ) );
 		update_post_meta( $post_id, '_co360_ssa_enroll_page_id', absint( $_POST['co360_ssa_enroll_page_id'] ?? 0 ) );
 		update_post_meta( $post_id, '_co360_ssa_code_mode', ( isset( $_POST['co360_ssa_code_mode'] ) && 'list' === $_POST['co360_ssa_code_mode'] ) ? 'list' : 'single' );
 		update_post_meta( $post_id, '_co360_ssa_lock_email', isset( $_POST['co360_ssa_lock_email'] ) ? '1' : '0' );

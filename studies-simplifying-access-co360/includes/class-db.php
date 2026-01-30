@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class DB {
-	const DB_VERSION = '1.0.0';
+	const DB_VERSION = '1.1.0';
 
 	public static function table_name( $table ) {
 		global $wpdb;
@@ -20,16 +20,20 @@ class DB {
 		$charset = $wpdb->get_charset_collate();
 		$inscriptions = self::table_name( CO360_SSA_DB_TABLE );
 		$codes = self::table_name( CO360_SSA_DB_CODES );
+		$center_seq = self::table_name( CO360_SSA_DB_CENTER_SEQ );
 
 		$sql1 = "CREATE TABLE {$inscriptions} (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			user_id BIGINT UNSIGNED NOT NULL,
 			estudio_id BIGINT UNSIGNED NOT NULL,
 			code_used VARCHAR(255) NULL,
+			center_code VARCHAR(10) NULL,
+			investigator_code VARCHAR(50) NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY user_id (user_id),
-			KEY estudio_id (estudio_id)
+			KEY estudio_id (estudio_id),
+			KEY investigator_code (investigator_code)
 		) {$charset};";
 
 		dbDelta( $sql1 );
@@ -53,6 +57,18 @@ class DB {
 		) {$charset};";
 
 		dbDelta( $sql2 );
+
+		$sql3 = "CREATE TABLE {$center_seq} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			estudio_id BIGINT UNSIGNED NOT NULL,
+			center_code VARCHAR(10) NOT NULL,
+			last_seq INT UNSIGNED NOT NULL DEFAULT 0,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY estudio_center (estudio_id, center_code)
+		) {$charset};";
+
+		dbDelta( $sql3 );
 
 		update_option( CO360_SSA_DBVER_KEY, self::DB_VERSION );
 	}

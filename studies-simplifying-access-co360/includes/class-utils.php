@@ -126,6 +126,17 @@ class Utils {
 		return str_pad( (string) $number, 3, '0', STR_PAD_LEFT );
 	}
 
+	public static function is_center_code_valid( $code, $study_id ) {
+		$formatted = self::format_center_code( $code );
+		if ( '' === $formatted ) {
+			return false;
+		}
+		if ( (int) $formatted === (int) $study_id ) {
+			return false;
+		}
+		return true;
+	}
+
 	public static function format_investigator_seq( $value ) {
 		$number = absint( $value );
 		if ( $number <= 0 ) {
@@ -181,11 +192,15 @@ class Utils {
 	}
 
 	public static function ensure_centers_have_codes( $study_id ) {
+		self::repair_center_codes( $study_id );
+	}
+
+	public static function repair_center_codes( $study_id ) {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_CENTERS );
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, center_code FROM {$table} WHERE estudio_id = %d AND (center_code = '' OR center_code IS NULL) ORDER BY id ASC",
+				"SELECT id, center_code FROM {$table} WHERE estudio_id = %d ORDER BY id ASC",
 				$study_id
 			),
 			ARRAY_A
@@ -194,13 +209,18 @@ class Utils {
 			return;
 		}
 		foreach ( $rows as $row ) {
+			$current_code = $row['center_code'];
+			if ( self::is_center_code_valid( $current_code, $study_id ) && (int) $current_code !== (int) $row['id'] ) {
+				continue;
+			}
 			$center_code = self::next_center_code( $study_id );
 			if ( '' === $center_code ) {
+				self::log( 'No se pudo reparar center_code para estudio ' . (int) $study_id . ' centro ' . (int) $row['id'] );
 				continue;
 			}
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$table} SET center_code = %s WHERE id = %d AND (center_code = '' OR center_code IS NULL)",
+					"UPDATE {$table} SET center_code = %s WHERE id = %d",
 					$center_code,
 					$row['id']
 				)
@@ -211,16 +231,23 @@ class Utils {
 	private static function next_center_code( $study_id ) {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
-				VALUES (%d, 0, NOW())
-				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
-				$study_id
-			)
-		);
-		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		return self::format_center_code( (string) $seq );
+		for ( $attempts = 0; $attempts < 5; $attempts++ ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+					VALUES (%d, 0, NOW())
+					ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+					$study_id
+				)
+			);
+			$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+			$code = self::format_center_code( (string) $seq );
+			if ( '' !== $code && self::is_center_code_valid( $code, $study_id ) ) {
+				return $code;
+			}
+		}
+		self::log( 'No se pudo generar center_code válido para estudio ' . (int) $study_id );
+		return '';
 	}
 
 	public static function get_debug_level() {

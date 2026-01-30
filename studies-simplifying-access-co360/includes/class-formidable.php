@@ -370,16 +370,23 @@ class Formidable {
 	private function next_center_code( $study_id ) {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
-				VALUES (%d, 0, NOW())
-				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
-				$study_id
-			)
-		);
-		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		return Utils::format_center_code( (string) $seq );
+		for ( $attempts = 0; $attempts < 5; $attempts++ ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+					VALUES (%d, 0, NOW())
+					ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+					$study_id
+				)
+			);
+			$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+			$code = Utils::format_center_code( (string) $seq );
+			if ( '' !== $code && Utils::is_center_code_valid( $code, $study_id ) ) {
+				return $code;
+			}
+		}
+		Utils::log( 'No se pudo generar center_code válido para estudio ' . (int) $study_id );
+		return '';
 	}
 
 	private function generate_investigator_code( $study_id, $center_code ) {

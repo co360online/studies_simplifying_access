@@ -214,6 +214,14 @@ class CPT_Study {
 
 			$raw_code = sanitize_text_field( $center['code'] );
 			$code = Utils::format_center_code( $raw_code );
+			if ( '' !== $raw_code && '' === $code ) {
+				Utils::log( 'Código de centro inválido en seed para estudio ' . (int) $study_id . ': ' . $raw_code );
+				continue;
+			}
+			if ( $code && ! Utils::is_center_code_valid( $code, $study_id ) ) {
+				Utils::log( 'Código de centro no permitido en seed para estudio ' . (int) $study_id . ': ' . $code );
+				continue;
+			}
 			if ( $code ) {
 				$code_exists = $wpdb->get_var(
 					$wpdb->prepare(
@@ -230,6 +238,7 @@ class CPT_Study {
 			}
 
 			if ( ! $code ) {
+				Utils::log( 'No se pudo asignar center_code en seed para estudio ' . (int) $study_id );
 				continue;
 			}
 
@@ -251,15 +260,22 @@ class CPT_Study {
 	private function next_center_code( $study_id ) {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_STUDY_SEQ );
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
-				VALUES (%d, 0, NOW())
-				ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
-				$study_id
-			)
-		);
-		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		return Utils::format_center_code( (string) $seq );
+		for ( $attempts = 0; $attempts < 5; $attempts++ ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$table} (estudio_id, last_center_num, updated_at)
+					VALUES (%d, 0, NOW())
+					ON DUPLICATE KEY UPDATE last_center_num = LAST_INSERT_ID(last_center_num + 1), updated_at = NOW()",
+					$study_id
+				)
+			);
+			$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+			$code = Utils::format_center_code( (string) $seq );
+			if ( '' !== $code && Utils::is_center_code_valid( $code, $study_id ) ) {
+				return $code;
+			}
+		}
+		Utils::log( 'No se pudo generar center_code válido para estudio ' . (int) $study_id );
+		return '';
 	}
 }

@@ -114,6 +114,26 @@ class Utils {
 		return trim( $slug, '-' );
 	}
 
+	public static function format_center_code( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value || ! ctype_digit( $value ) || strlen( $value ) > 3 ) {
+			return '';
+		}
+		$number = (int) $value;
+		if ( $number <= 0 ) {
+			return '';
+		}
+		return str_pad( (string) $number, 3, '0', STR_PAD_LEFT );
+	}
+
+	public static function format_investigator_seq( $value ) {
+		$number = absint( $value );
+		if ( $number <= 0 ) {
+			return '';
+		}
+		return str_pad( (string) $number, 5, '0', STR_PAD_LEFT );
+	}
+
 	public static function parse_centers_seed( $raw ) {
 		$lines = preg_split( '/\r\n|\r|\n/', (string) $raw );
 		$centers = array();

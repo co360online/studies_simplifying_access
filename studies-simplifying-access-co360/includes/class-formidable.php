@@ -59,7 +59,7 @@ class Formidable {
 		$center_other_name = $this->get_center_code_from_values( $values, $center_other_field_id );
 		$center_validation = $this->validate_center_selection( $study_id, $center_selection, $center_other_name );
 		if ( is_wp_error( $center_validation ) ) {
-			$errors['co360_ssa_center'] = __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN );
+			$errors['co360_ssa_center'] = $center_validation->get_error_message();
 			return $errors;
 		}
 
@@ -258,21 +258,21 @@ class Formidable {
 
 	private function validate_center_selection( $study_id, $selection, $other_name ) {
 		if ( empty( $selection ) ) {
-			return new \WP_Error( 'center_required', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+			return new \WP_Error( 'center_required', __( 'Selecciona un centro de la lista.', CO360_SSA_TEXT_DOMAIN ) );
 		}
 		if ( 'other' === $selection ) {
 			$name = Utils::normalize_center_name( $other_name );
 			if ( strlen( $name ) < 3 ) {
-				return new \WP_Error( 'center_other_required', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+				return new \WP_Error( 'center_other_required', __( 'Escribe el nombre del centro (mínimo 3 caracteres).', CO360_SSA_TEXT_DOMAIN ) );
 			}
 			return true;
 		}
 		if ( ! ctype_digit( (string) $selection ) ) {
-			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido de la lista.', CO360_SSA_TEXT_DOMAIN ) );
 		}
 		$center = $this->get_center_by_id( $study_id, (int) $selection );
 		if ( ! $center ) {
-			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido.', CO360_SSA_TEXT_DOMAIN ) );
+			return new \WP_Error( 'center_invalid', __( 'Selecciona un centro válido de la lista.', CO360_SSA_TEXT_DOMAIN ) );
 		}
 		return true;
 	}
@@ -363,10 +363,7 @@ class Formidable {
 			)
 		);
 		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		if ( $seq <= 0 ) {
-			return '';
-		}
-		return str_pad( (string) $seq, 2, '0', STR_PAD_LEFT );
+		return Utils::format_center_code( (string) $seq );
 	}
 
 	private function generate_investigator_code( $study_id, $center_code ) {
@@ -382,10 +379,10 @@ class Formidable {
 			)
 		);
 		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		if ( $seq <= 0 ) {
+		$seq_str = Utils::format_investigator_seq( $seq );
+		if ( '' === $seq_str ) {
 			return '';
 		}
-		$seq_str = str_pad( (string) $seq, 3, '0', STR_PAD_LEFT );
 		return $center_code . '-' . $seq_str;
 	}
 }

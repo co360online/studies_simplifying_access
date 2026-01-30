@@ -212,7 +212,8 @@ class CPT_Study {
 				continue;
 			}
 
-			$code = sanitize_text_field( $center['code'] );
+			$raw_code = sanitize_text_field( $center['code'] );
+			$code = Utils::format_center_code( $raw_code );
 			if ( $code ) {
 				$code_exists = $wpdb->get_var(
 					$wpdb->prepare(
@@ -259,9 +260,6 @@ class CPT_Study {
 			)
 		);
 		$seq = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
-		if ( $seq <= 0 ) {
-			return '';
-		}
-		return str_pad( (string) $seq, 2, '0', STR_PAD_LEFT );
+		return Utils::format_center_code( (string) $seq );
 	}
 }

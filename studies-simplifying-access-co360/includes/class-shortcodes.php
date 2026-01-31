@@ -315,6 +315,13 @@ class Shortcodes {
 		$this->formidable_token_data = null;
 		$this->formidable_center_data = null;
 
+		if ( $center_field_id && $study_id ) {
+			$other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
+			if ( $other_field_id ) {
+				$form_html .= $this->render_other_center_toggle_script( $center_field_id, $other_field_id );
+			}
+		}
+
 		return $form_html;
 	}
 
@@ -377,6 +384,42 @@ class Shortcodes {
 			$form_start .= $hidden;
 		}
 		return $form_start;
+	}
+
+	private function render_other_center_toggle_script( $center_field_id, $other_field_id ) {
+		$center_field_id = absint( $center_field_id );
+		$other_field_id = absint( $other_field_id );
+		if ( ! $center_field_id || ! $other_field_id ) {
+			return '';
+		}
+		$script = <<<JS
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var select = document.querySelector('select[name="item_meta[{$center_field_id}]"]');
+  if (!select) {
+    select = document.querySelector('#field_{$center_field_id}');
+  }
+  var container = document.getElementById('frm_field_{$other_field_id}_container');
+  var otherInput = document.querySelector('[name="item_meta[{$other_field_id}]"]');
+  if (!select || !container) {
+    return;
+  }
+  function toggleOther() {
+    if (select.value === 'other') {
+      container.style.display = '';
+    } else {
+      container.style.display = 'none';
+      if (otherInput) {
+        otherInput.value = '';
+      }
+    }
+  }
+  select.addEventListener('change', toggleOther);
+  toggleOther();
+});
+</script>
+JS;
+		return $script;
 	}
 
 	public function inject_formidable_centers( $values, $field ) {

@@ -55,18 +55,31 @@ class Formidable {
 			$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
 		}
 		$center_other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
-		$center_selection = '';
-		if ( isset( $_POST['item_meta'][ $center_select_field_id ] ) ) {
-			$center_selection = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_select_field_id ] ) );
+		$center_selection = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_select_field_id ] ?? '' ) );
+		$center_other_name = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_other_field_id ] ?? '' ) );
+		$center_other_normalized = preg_replace( '/\s+/', ' ', trim( $center_other_name ) );
+		if ( 2 === Utils::get_debug_level() ) {
+			Utils::log(
+				sprintf(
+					'Debug inscripción: select_field_id=%d other_field_id=%d selected=%s other=%s',
+					$center_select_field_id,
+					$center_other_field_id,
+					$center_selection,
+					$center_other_normalized
+				)
+			);
 		}
-		$center_other_name = '';
-		if ( isset( $_POST['item_meta'][ $center_other_field_id ] ) ) {
-			$center_other_name = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_other_field_id ] ) );
-		}
-		$center_validation = $this->validate_center_selection( $study_id, $center_selection, $center_other_name );
-		if ( is_wp_error( $center_validation ) ) {
-			$errors['co360_ssa_center'] = $center_validation->get_error_message();
-			return $errors;
+		if ( 'other' === $center_selection ) {
+			if ( strlen( $center_other_normalized ) < 3 ) {
+				$errors[ $center_other_field_id ] = __( 'Escribe el nombre del centro (mínimo 3 caracteres).', CO360_SSA_TEXT_DOMAIN );
+				return $errors;
+			}
+		} else {
+			$center_validation = $this->validate_center_selection( $study_id, $center_selection, $center_other_normalized );
+			if ( is_wp_error( $center_validation ) ) {
+				$errors['co360_ssa_center'] = $center_validation->get_error_message();
+				return $errors;
+			}
 		}
 		if ( 2 === Utils::get_debug_level() ) {
 			$center_valid = $this->get_center_by_code( $study_id, Utils::format_center_code( (string) $center_selection ) ) ? '1' : '0';

@@ -78,6 +78,10 @@ class CPT_Study {
 			<input type="number" name="co360_ssa_center_other_field_id" value="<?php echo esc_attr( $meta['center_other_field_id'] ); ?>" class="small-text">
 		</p>
 		<p>
+			<strong><?php esc_html_e( 'ID del campo nombre del centro (hidden)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
+			<input type="number" name="co360_ssa_center_name_field_id" value="<?php echo esc_attr( $meta['center_name_field_id'] ); ?>" class="small-text">
+		</p>
+		<p>
 			<strong><?php esc_html_e( 'Centros del estudio (seed)', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
 			<textarea name="co360_ssa_centers_seed" class="large-text" rows="6"><?php echo esc_textarea( $meta['centers_seed'] ); ?></textarea>
 		</p>
@@ -160,6 +164,7 @@ class CPT_Study {
 		update_post_meta( $post_id, '_co360_ssa_enroll_form_id', absint( $_POST['co360_ssa_enroll_form_id'] ?? 0 ) );
 		update_post_meta( $post_id, '_co360_ssa_center_select_field_id', absint( $_POST['co360_ssa_center_select_field_id'] ?? 0 ) );
 		update_post_meta( $post_id, '_co360_ssa_center_other_field_id', absint( $_POST['co360_ssa_center_other_field_id'] ?? 0 ) );
+		update_post_meta( $post_id, '_co360_ssa_center_name_field_id', absint( $_POST['co360_ssa_center_name_field_id'] ?? 0 ) );
 		$centers_seed = sanitize_textarea_field( wp_unslash( $_POST['co360_ssa_centers_seed'] ?? '' ) );
 		update_post_meta( $post_id, '_co360_ssa_centers_seed', $centers_seed );
 		update_post_meta( $post_id, '_co360_ssa_enroll_page_id', absint( $_POST['co360_ssa_enroll_page_id'] ?? 0 ) );

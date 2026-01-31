@@ -147,6 +147,9 @@ class Formidable {
 			return;
 		}
 
+		$center_name = sanitize_text_field( $center_row['center_name'] );
+		$center_name_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_name_field_id', true ) );
+
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_TABLE );
 		$existing = $wpdb->get_var(
@@ -169,12 +172,21 @@ class Formidable {
 				'code_used' => sanitize_text_field( $context['code'] ),
 				'center_id' => $center_row['id'],
 				'center_code' => $center_row['center_code'],
-				'center_name' => $center_row['center_name'],
+				'center_name' => $center_name,
 				'investigator_code' => $investigator_code,
 				'created_at' => current_time( 'mysql' ),
 			),
 			array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
+
+		// Store both center_code and center_name for auditability.
+		if ( $center_name_field_id > 0 ) {
+			if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
+				\FrmEntryMeta::update_entry_meta( $entry_id, $center_name_field_id, null, $center_name );
+			} else {
+				update_post_meta( $entry_id, $center_name_field_id, $center_name );
+			}
+		}
 
 		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
 			\FrmEntryMeta::update_entry_meta( $entry_id, 0, $investigator_code, 'co360_ssa_investigator_code' );

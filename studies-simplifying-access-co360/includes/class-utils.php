@@ -93,6 +93,7 @@ class Utils {
 			'enroll_form_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) ),
 			'center_select_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) ),
 			'center_other_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) ),
+			'center_name_field_id' => absint( get_post_meta( $study_id, '_co360_ssa_center_name_field_id', true ) ),
 			'centers_seed' => get_post_meta( $study_id, '_co360_ssa_centers_seed', true ),
 			'enroll_page_id' => absint( get_post_meta( $study_id, '_co360_ssa_enroll_page_id', true ) ),
 			'code_mode' => get_post_meta( $study_id, '_co360_ssa_code_mode', true ),

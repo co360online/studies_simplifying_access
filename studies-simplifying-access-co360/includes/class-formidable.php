@@ -123,17 +123,12 @@ class Formidable {
 			return;
 		}
 
-		$token = $this->get_token_from_request();
-		if ( empty( $token ) ) {
+		$token = sanitize_text_field( wp_unslash( $_POST[ CO360_SSA_TOKEN_QUERY ] ?? $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( '' === $token ) {
 			return;
 		}
 		$context = $this->auth->get_context_by_token( $token );
 		if ( ! $context ) {
-			return;
-		}
-
-		$user = wp_get_current_user();
-		if ( ! $user || ! $user->ID ) {
 			return;
 		}
 
@@ -143,56 +138,126 @@ class Formidable {
 			return;
 		}
 
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			$user = get_user_by( 'email', $context['email'] );
+			$user_id = $user ? (int) $user->ID : 0;
+		}
+		if ( ! $user_id ) {
+			return;
+		}
+
 		$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
 		if ( ! $center_select_field_id ) {
 			$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
 		}
 		$center_other_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_other_field_id', true ) );
-		$center_selection = $this->get_center_code_from_request( $entry_id, $center_select_field_id );
-		$center_other_name = $this->get_center_code_from_request( $entry_id, $center_other_field_id );
-		$center_row = $this->resolve_center_row( $study_id, $center_selection, $center_other_name, $user->ID );
-		if ( ! $center_row ) {
+		$center_selection = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_select_field_id ] ?? '' ) );
+
+		$center_code = '';
+		$center_name = '';
+		$center_id = 0;
+		$center_other_normalized = '';
+
+		if ( '' !== $center_selection && 'other' !== $center_selection ) {
+			$center_code = $center_selection;
+			$center_row = $this->get_center_by_code( $study_id, $center_code );
+			if ( ! $center_row ) {
+				Utils::log(
+					sprintf(
+						'Centro inválido en inscripción: study_id=%d center_code=%s',
+						$study_id,
+						$center_code
+					)
+				);
+				return;
+			}
+			$center_name = sanitize_text_field( $center_row['center_name'] );
+			$center_id = (int) $center_row['id'];
+		} elseif ( 'other' === $center_selection ) {
+			$center_other_raw = sanitize_text_field( wp_unslash( $_POST['item_meta'][ $center_other_field_id ] ?? '' ) );
+			$center_other_normalized = preg_replace( '/\s+/', ' ', trim( $center_other_raw ) );
+			$slug = Utils::center_slug( $center_other_normalized );
+			$existing = $this->get_center_by_slug( $study_id, $slug );
+			if ( $existing ) {
+				$center_code = sanitize_text_field( $existing['center_code'] );
+				$center_name = sanitize_text_field( $existing['center_name'] );
+				$center_id = (int) $existing['id'];
+			} else {
+				$new_center_code = $this->next_center_code( $study_id );
+				if ( ! $new_center_code ) {
+					return;
+				}
+				$inserted = $this->insert_center( $study_id, $new_center_code, $center_other_normalized, $slug, 'user', $user_id );
+				if ( ! $inserted ) {
+					$existing = $this->get_center_by_slug( $study_id, $slug );
+				}
+				if ( ! $existing && $inserted ) {
+					$existing = $this->get_center_by_slug( $study_id, $slug );
+				}
+				if ( ! $existing ) {
+					return;
+				}
+				$center_code = sanitize_text_field( $existing['center_code'] );
+				$center_name = sanitize_text_field( $existing['center_name'] );
+				$center_id = (int) $existing['id'];
+			}
+		} else {
 			return;
 		}
 
-		$investigator_code = $this->generate_investigator_code( $study_id, $center_row['center_code'] );
+		$investigator_code = $this->generate_investigator_code( $study_id, $center_code );
 		if ( ! $investigator_code ) {
 			return;
 		}
 
-		$center_name = sanitize_text_field( $center_row['center_name'] );
-		$center_name_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_name_field_id', true ) );
-
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_TABLE );
-		$existing = $wpdb->get_var(
+		$existing_id = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND estudio_id = %d",
-				$user->ID,
+				"SELECT id FROM {$table} WHERE user_id = %d AND estudio_id = %d",
+				$user_id,
 				$study_id
 			)
 		);
 
-		if ( $existing ) {
-			return;
+		$insert_ok = false;
+		if ( $existing_id ) {
+			$updated = $wpdb->update(
+				$table,
+				array(
+					'code_used' => sanitize_text_field( $context['code'] ),
+					'center_id' => $center_id,
+					'center_code' => $center_code,
+					'center_name' => $center_name,
+					'investigator_code' => $investigator_code,
+					'created_at' => current_time( 'mysql' ),
+				),
+				array(
+					'id' => (int) $existing_id,
+				),
+				array( '%s', '%d', '%s', '%s', '%s', '%s' ),
+				array( '%d' )
+			);
+			$insert_ok = false !== $updated;
+		} else {
+			$insert_ok = (bool) $wpdb->insert(
+				$table,
+				array(
+					'user_id' => $user_id,
+					'estudio_id' => $study_id,
+					'code_used' => sanitize_text_field( $context['code'] ),
+					'center_id' => $center_id,
+					'center_code' => $center_code,
+					'center_name' => $center_name,
+					'investigator_code' => $investigator_code,
+					'created_at' => current_time( 'mysql' ),
+				),
+				array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
+			);
 		}
 
-		$wpdb->insert(
-			$table,
-			array(
-				'user_id' => $user->ID,
-				'estudio_id' => $study_id,
-				'code_used' => sanitize_text_field( $context['code'] ),
-				'center_id' => $center_row['id'],
-				'center_code' => $center_row['center_code'],
-				'center_name' => $center_name,
-				'investigator_code' => $investigator_code,
-				'created_at' => current_time( 'mysql' ),
-			),
-			array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
-		);
-
-		// Store both center_code and center_name for auditability.
+		$center_name_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_name_field_id', true ) );
 		if ( $center_name_field_id > 0 ) {
 			if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
 				\FrmEntryMeta::update_entry_meta( $entry_id, $center_name_field_id, null, $center_name );
@@ -201,8 +266,31 @@ class Formidable {
 			}
 		}
 
-		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
+		$investigator_code_field_id = absint( get_post_meta( $study_id, '_co360_ssa_investigator_code_field_id', true ) );
+		if ( $investigator_code_field_id > 0 ) {
+			if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
+				\FrmEntryMeta::update_entry_meta( $entry_id, $investigator_code_field_id, null, $investigator_code );
+			} else {
+				update_post_meta( $entry_id, $investigator_code_field_id, $investigator_code );
+			}
+		} elseif ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
 			\FrmEntryMeta::update_entry_meta( $entry_id, 0, $investigator_code, 'co360_ssa_investigator_code' );
+		}
+
+		if ( 2 === Utils::get_debug_level() ) {
+			Utils::log(
+				sprintf(
+					'Debug inscripción: token=%s study_id=%d user_id=%d selected=%s other=%s center_code=%s investigator_code=%s insert_ok=%s',
+					$token,
+					$study_id,
+					$user_id,
+					$center_selection,
+					$center_other_normalized,
+					$center_code,
+					$investigator_code,
+					$insert_ok ? '1' : '0'
+				)
+			);
 		}
 
 		$meta = Utils::get_study_meta( $study_id );

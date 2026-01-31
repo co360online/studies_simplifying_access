@@ -231,12 +231,13 @@ class Formidable {
 					'center_code' => $center_code,
 					'center_name' => $center_name,
 					'investigator_code' => $investigator_code,
+					'entry_id' => (int) $entry_id,
 					'created_at' => current_time( 'mysql' ),
 				),
 				array(
 					'id' => (int) $existing_id,
 				),
-				array( '%s', '%d', '%s', '%s', '%s', '%s' ),
+				array( '%s', '%d', '%s', '%s', '%s', '%d', '%s' ),
 				array( '%d' )
 			);
 			$insert_ok = false !== $updated;
@@ -251,9 +252,10 @@ class Formidable {
 					'center_code' => $center_code,
 					'center_name' => $center_name,
 					'investigator_code' => $investigator_code,
+					'entry_id' => (int) $entry_id,
 					'created_at' => current_time( 'mysql' ),
 				),
-				array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
+				array( '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%d', '%s' )
 			);
 		}
 

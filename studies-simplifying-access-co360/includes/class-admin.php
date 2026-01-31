@@ -78,11 +78,19 @@ class Admin {
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_TABLE );
 
+		$study_id = isset( $_GET['study_id'] ) ? absint( $_GET['study_id'] ) : 0;
+		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
 		$start = isset( $_GET['start_date'] ) ? sanitize_text_field( wp_unslash( $_GET['start_date'] ) ) : '';
-		$end   = isset( $_GET['end_date'] ) ? sanitize_text_field( wp_unslash( $_GET['end_date'] ) ) : '';
+		$end = isset( $_GET['end_date'] ) ? sanitize_text_field( wp_unslash( $_GET['end_date'] ) ) : '';
+		$center_code = isset( $_GET['center_code'] ) ? sanitize_text_field( wp_unslash( $_GET['center_code'] ) ) : '';
+		$investigator_code = isset( $_GET['investigator_code'] ) ? sanitize_text_field( wp_unslash( $_GET['investigator_code'] ) ) : '';
 
 		$where = '1=1';
 		$args  = array();
+		if ( $study_id ) {
+			$where .= ' AND ' . $table . '.estudio_id = %d';
+			$args[] = $study_id;
+		}
 		if ( $start ) {
 			$where .= ' AND created_at >= %s';
 			$args[] = $start . ' 00:00:00';
@@ -91,26 +99,43 @@ class Admin {
 			$where .= ' AND created_at <= %s';
 			$args[] = $end . ' 23:59:59';
 		}
+		if ( $center_code ) {
+			$where .= ' AND ' . $table . '.center_code = %s';
+			$args[] = $center_code;
+		}
+		if ( $investigator_code ) {
+			$where .= ' AND ' . $table . '.investigator_code LIKE %s';
+			$args[] = '%' . $wpdb->esc_like( $investigator_code ) . '%';
+		}
 
-		$sql = "SELECT user_id, estudio_id, code_used, created_at FROM {$table} WHERE {$where} ORDER BY created_at DESC";
+		$join = " LEFT JOIN {$wpdb->users} AS u ON u.ID = {$table}.user_id";
+		if ( $search ) {
+			$where .= ' AND u.user_email LIKE %s';
+			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
+		}
+
+		$sql = "SELECT {$table}.user_id, {$table}.estudio_id, {$table}.code_used, {$table}.created_at, {$table}.center_code, {$table}.center_name, {$table}.investigator_code, {$table}.entry_id, u.user_email FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";
 		$rows = $args ? $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A ) : $wpdb->get_results( $sql, ARRAY_A );
 
 		header( 'Content-Type: text/csv' );
 		header( 'Content-Disposition: attachment; filename="co360-ssa-enrollments.csv"' );
 
 		$output = fopen( 'php://output', 'w' );
-		fputcsv( $output, array( 'user_id', 'email', 'study_id', 'study_title', 'code_used', 'created_at' ) );
+		fputcsv( $output, array( 'user_id', 'email', 'study_id', 'study_title', 'code_used', 'center_code', 'center_name', 'investigator_code', 'entry_id', 'created_at' ) );
 		foreach ( $rows as $row ) {
-			$user = get_user_by( 'id', $row['user_id'] );
 			$study = get_post( $row['estudio_id'] );
 			fputcsv(
 				$output,
 				array(
 					$row['user_id'],
-					$user ? $user->user_email : '',
+					$row['user_email'] ?? '',
 					$row['estudio_id'],
 					$study ? $study->post_title : '',
 					$row['code_used'],
+					$row['center_code'],
+					$row['center_name'],
+					$row['investigator_code'],
+					$row['entry_id'],
 					$row['created_at'],
 				)
 			);

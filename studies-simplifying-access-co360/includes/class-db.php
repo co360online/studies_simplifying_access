@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class DB {
-	const DB_VERSION = '1.2.0';
+	const DB_VERSION = '1.3.0';
 
 	public static function table_name( $table ) {
 		global $wpdb;
@@ -33,6 +33,7 @@ class DB {
 			center_code VARCHAR(10) NULL,
 			center_name VARCHAR(255) NULL,
 			investigator_code VARCHAR(50) NULL,
+			entry_id BIGINT UNSIGNED NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY user_id (user_id),

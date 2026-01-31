@@ -22,6 +22,7 @@ class Shortcodes {
 		add_shortcode( 'co360_ssa_stats', array( $this, 'shortcode_stats' ) );
 		add_shortcode( 'co360_ssa_login', array( $this, 'shortcode_login' ) );
 		add_shortcode( 'co360_ssa_my_studies', array( $this, 'shortcode_my_studies' ) );
+		add_shortcode( 'co360_ssa_my_investigator_data', array( $this, 'shortcode_my_investigator_data' ) );
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_ajax_nopriv_co360_ssa_check_login', array( $this, 'ajax_check_login' ) );
@@ -774,6 +775,114 @@ JS;
 		wp_enqueue_style( 'co360-ssa-front' );
 		ob_start();
 		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-my-studies.php';
+		return ob_get_clean();
+	}
+
+	public function shortcode_my_investigator_data( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'study_id' => 0,
+				'show_enter_button' => 1,
+				'show_copy' => 1,
+				'layout' => 'cards',
+				'title' => __( 'Mis datos de investigador', CO360_SSA_TEXT_DOMAIN ),
+				'empty_message' => __( 'Aún no tienes inscripciones activas.', CO360_SSA_TEXT_DOMAIN ),
+			),
+			$atts,
+			'co360_ssa_my_investigator_data'
+		);
+
+		$layout = in_array( $atts['layout'], array( 'cards', 'table' ), true ) ? $atts['layout'] : 'cards';
+		$show_enter_button = absint( $atts['show_enter_button'] );
+		$show_copy = absint( $atts['show_copy'] );
+		$study_filter = absint( $atts['study_id'] );
+
+		$user_id = get_current_user_id();
+		$options = Utils::get_options();
+		$current_url = get_permalink( get_queried_object_id() );
+
+		$login_url = '';
+		if ( ! empty( $options['login_page_url'] ) ) {
+			$login_url = add_query_arg( 'redirect_to', $current_url, $options['login_page_url'] );
+		} else {
+			$login_url = wp_login_url( $current_url );
+		}
+
+		$entries = array();
+		if ( $user_id ) {
+			global $wpdb;
+			$table = DB::table_name( CO360_SSA_DB_TABLE );
+			if ( $study_filter ) {
+				$sql = $wpdb->prepare(
+					"SELECT * FROM {$table} WHERE user_id = %d AND estudio_id = %d ORDER BY created_at DESC LIMIT 1",
+					$user_id,
+					$study_filter
+				);
+				$rows = $wpdb->get_results( $sql, ARRAY_A );
+			} else {
+				$sql = $wpdb->prepare(
+					"SELECT i.* FROM {$table} i
+					JOIN (
+						SELECT estudio_id, MAX(created_at) AS max_created
+						FROM {$table}
+						WHERE user_id = %d
+						GROUP BY estudio_id
+					) t ON t.estudio_id = i.estudio_id AND t.max_created = i.created_at
+					WHERE i.user_id = %d
+					ORDER BY i.created_at DESC",
+					$user_id,
+					$user_id
+				);
+				$rows = $wpdb->get_results( $sql, ARRAY_A );
+			}
+
+			foreach ( $rows as $row ) {
+				$study_id = absint( $row['estudio_id'] );
+				$study = get_post( $study_id );
+				if ( ! $study || CO360_SSA_CT_STUDY !== $study->post_type ) {
+					continue;
+				}
+
+				$study_page_id = absint( get_post_meta( $study_id, '_co360_ssa_study_page_id', true ) );
+				$crd_url = (string) get_post_meta( $study_id, '_co360_ssa_crd_url', true );
+				$study_url = '';
+				if ( $study_page_id > 0 ) {
+					$study_url = get_permalink( $study_page_id );
+				} elseif ( ! empty( $crd_url ) ) {
+					$study_url = $crd_url;
+				} else {
+					$post_type = get_post_type_object( $study->post_type );
+					if ( $post_type && $post_type->publicly_queryable ) {
+						$study_url = get_permalink( $study_id );
+					}
+				}
+
+				$center_name = sanitize_text_field( $row['center_name'] ?? '' );
+				$center_code = sanitize_text_field( $row['center_code'] ?? '' );
+				$center_label = trim( $center_name . ( $center_code ? ' (' . $center_code . ')' : '' ) );
+				if ( '' === $center_label ) {
+					$center_label = __( 'Pendiente', CO360_SSA_TEXT_DOMAIN );
+				}
+
+				$investigator_code = sanitize_text_field( $row['investigator_code'] ?? '' );
+				if ( '' === $investigator_code ) {
+					$investigator_code = __( 'Pendiente', CO360_SSA_TEXT_DOMAIN );
+				}
+
+				$entries[] = array(
+					'study_title' => $study->post_title,
+					'study_id' => $study_id,
+					'study_url' => $study_url,
+					'center_label' => $center_label,
+					'investigator_code' => $investigator_code,
+					'created_at' => $row['created_at'] ?? '',
+				);
+			}
+		}
+
+		wp_enqueue_style( 'co360-ssa-front' );
+		ob_start();
+		include CO360_SSA_PLUGIN_PATH . 'templates/shortcode-my-investigator-data.php';
 		return ob_get_clean();
 	}
 

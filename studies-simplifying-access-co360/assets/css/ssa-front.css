@@ -202,3 +202,77 @@
   stroke: #4f46e5;
   stroke-width: 2;
 }
+
+.co360-ssa-investigator-data {
+  margin: 20px 0;
+}
+
+.co360-ssa-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.co360-ssa-card {
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.co360-ssa-card-title {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.co360-ssa-card-meta {
+  margin: 6px 0;
+  font-size: 0.95rem;
+}
+
+.co360-ssa-code {
+  font-weight: 600;
+}
+
+.co360-ssa-copy-button {
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f7f7f7;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.co360-ssa-enter-button {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: #2b7de9;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.co360-ssa-enter-button:hover {
+  background: #1f65c0;
+  color: #fff;
+}
+
+.co360-ssa-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.co360-ssa-table th,
+.co360-ssa-table td {
+  border: 1px solid #e2e2e2;
+  padding: 8px;
+  text-align: left;
+}
+
+.co360-ssa-muted {
+  color: #777;
+}

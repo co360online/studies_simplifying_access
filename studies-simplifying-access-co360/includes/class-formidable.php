@@ -14,6 +14,8 @@ class Formidable {
 
 	public function register() {
 		add_filter( 'frm_validate_entry', array( $this, 'validate_entry' ), 10, 3 );
+		add_filter( 'frm_setup_new_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
+		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
 	}
@@ -257,6 +259,65 @@ class Formidable {
 			return sanitize_text_field( wp_unslash( $meta[ $field_id ] ) );
 		}
 		return '';
+	}
+
+	public function centers_field_vars( $values, $field ) {
+		if ( ! class_exists( '\FrmEntry' ) ) {
+			return $values;
+		}
+		if ( empty( $field->type ) || ! in_array( $field->type, array( 'select', 'dropdown' ), true ) ) {
+			return $values;
+		}
+		$form_id = 0;
+		if ( isset( $field->form_id ) ) {
+			$form_id = absint( $field->form_id );
+		} elseif ( isset( $values['form_id'] ) ) {
+			$form_id = absint( $values['form_id'] );
+		}
+		if ( ! $form_id ) {
+			return $values;
+		}
+		$token = $this->get_token_from_request();
+		if ( '' === $token ) {
+			return $values;
+		}
+		$context = $this->auth->get_context_by_token( $token );
+		if ( ! $context ) {
+			return $values;
+		}
+		$study_id = absint( $context['study_id'] );
+		$study_form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
+		if ( ! $study_form_id || $study_form_id !== $form_id ) {
+			return $values;
+		}
+		$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
+		if ( ! $center_field_id ) {
+			$center_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_field_id', true ) );
+		}
+		if ( ! $center_field_id || (int) $field->id !== $center_field_id ) {
+			return $values;
+		}
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_CENTERS );
+		$centers = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT center_code, center_name FROM {$table} WHERE estudio_id = %d ORDER BY center_name ASC",
+				$study_id
+			),
+			ARRAY_A
+		);
+		$options = array(
+			'' => __( 'Selecciona un centro', CO360_SSA_TEXT_DOMAIN ),
+		);
+		foreach ( $centers as $center ) {
+			$label = $center['center_name'] . ' (' . $center['center_code'] . ')';
+			$options[ (string) $center['center_code'] ] = $label;
+		}
+		$options['other'] = __( 'Mi centro no está en la lista', CO360_SSA_TEXT_DOMAIN );
+		$values['options'] = $options;
+		// Formidable validates select values server-side; use_key + associative options ensure submitted value is accepted.
+		$values['use_key'] = true;
+		return $values;
 	}
 
 	private function get_center_code_from_request( $entry_id, $field_id ) {

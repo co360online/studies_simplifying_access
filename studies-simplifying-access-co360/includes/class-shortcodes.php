@@ -273,6 +273,12 @@ class Shortcodes {
 		);
 		add_filter(
 			'frm_form_start_html',
+			array( $this, 'inject_token_hidden' ),
+			10,
+			2
+		);
+		add_filter(
+			'frm_form_start_html',
 			array( $this, 'inject_formidable_form_start_token' ),
 			10,
 			2
@@ -302,6 +308,7 @@ class Shortcodes {
 		$form_html = \FrmFormsController::show_form( $form_id, '', true, false );
 
 		remove_filter( 'frm_form_content', array( $this, 'inject_formidable_token' ), 10 );
+		remove_filter( 'frm_form_start_html', array( $this, 'inject_token_hidden' ), 10 );
 		remove_filter( 'frm_form_start_html', array( $this, 'inject_formidable_form_start_token' ), 10 );
 		remove_filter( 'frm_setup_new_fields_vars', array( $this, 'inject_formidable_centers' ), 10 );
 		remove_filter( 'frm_setup_edit_fields_vars', array( $this, 'inject_formidable_centers' ), 10 );
@@ -326,6 +333,36 @@ class Shortcodes {
 			$content = preg_replace( '/(<form[^>]*>)/', '$1' . $hidden, $content, 1 );
 		}
 		return $content;
+	}
+
+	public function inject_token_hidden( $form_start, $form ) {
+		if ( empty( $this->formidable_token_data ) ) {
+			return $form_start;
+		}
+		if ( (int) $form->id !== (int) $this->formidable_token_data['form_id'] ) {
+			return $form_start;
+		}
+		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( '' === $token ) {
+			$request_uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
+			if ( '' !== $request_uri ) {
+				$parsed = wp_parse_url( $request_uri );
+				if ( ! empty( $parsed['query'] ) ) {
+					parse_str( $parsed['query'], $query_vars );
+					if ( ! empty( $query_vars[ CO360_SSA_TOKEN_QUERY ] ) ) {
+						$token = sanitize_text_field( wp_unslash( $query_vars[ CO360_SSA_TOKEN_QUERY ] ) );
+					}
+				}
+			}
+		}
+		if ( '' === $token ) {
+			return $form_start;
+		}
+		$hidden = '<input type="hidden" name="' . esc_attr( CO360_SSA_TOKEN_QUERY ) . '" value="' . esc_attr( $token ) . '" />';
+		if ( false === strpos( $form_start, $hidden ) ) {
+			$form_start .= $hidden;
+		}
+		return $form_start;
 	}
 
 	public function inject_formidable_form_start_token( $form_start, $form ) {

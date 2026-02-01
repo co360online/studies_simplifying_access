@@ -80,6 +80,7 @@ class Admin {
 
 		$study_id = isset( $_GET['study_id'] ) ? absint( $_GET['study_id'] ) : 0;
 		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+		$name_query = isset( $_GET['name_query'] ) ? sanitize_text_field( wp_unslash( $_GET['name_query'] ) ) : '';
 		$start = isset( $_GET['start_date'] ) ? sanitize_text_field( wp_unslash( $_GET['start_date'] ) ) : '';
 		$end = isset( $_GET['end_date'] ) ? sanitize_text_field( wp_unslash( $_GET['end_date'] ) ) : '';
 		$center_code = isset( $_GET['center_code'] ) ? sanitize_text_field( wp_unslash( $_GET['center_code'] ) ) : '';
@@ -114,6 +115,14 @@ class Admin {
 		if ( $search ) {
 			$where .= ' AND u.user_email LIKE %s';
 			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
+		}
+		if ( $name_query ) {
+			$like = '%' . $wpdb->esc_like( $name_query ) . '%';
+			$where .= ' AND ( um_fn.meta_value LIKE %s OR um_ln.meta_value LIKE %s OR u.display_name LIKE %s OR u.user_login LIKE %s )';
+			$args[] = $like;
+			$args[] = $like;
+			$args[] = $like;
+			$args[] = $like;
 		}
 
 		$sql = "SELECT {$table}.user_id, {$table}.estudio_id, {$table}.code_used, {$table}.created_at, {$table}.center_code, {$table}.center_name, {$table}.investigator_code, {$table}.entry_id, u.user_email, um_fn.meta_value AS first_name, um_ln.meta_value AS last_name FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";

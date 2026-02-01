@@ -109,19 +109,21 @@ class Admin {
 		}
 
 		$join = " LEFT JOIN {$wpdb->users} AS u ON u.ID = {$table}.user_id";
+		$join .= " LEFT JOIN {$wpdb->usermeta} AS um_fn ON um_fn.user_id = u.ID AND um_fn.meta_key = 'first_name'";
+		$join .= " LEFT JOIN {$wpdb->usermeta} AS um_ln ON um_ln.user_id = u.ID AND um_ln.meta_key = 'last_name'";
 		if ( $search ) {
 			$where .= ' AND u.user_email LIKE %s';
 			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
 		}
 
-		$sql = "SELECT {$table}.user_id, {$table}.estudio_id, {$table}.code_used, {$table}.created_at, {$table}.center_code, {$table}.center_name, {$table}.investigator_code, {$table}.entry_id, u.user_email FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";
+		$sql = "SELECT {$table}.user_id, {$table}.estudio_id, {$table}.code_used, {$table}.created_at, {$table}.center_code, {$table}.center_name, {$table}.investigator_code, {$table}.entry_id, u.user_email, um_fn.meta_value AS first_name, um_ln.meta_value AS last_name FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";
 		$rows = $args ? $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A ) : $wpdb->get_results( $sql, ARRAY_A );
 
 		header( 'Content-Type: text/csv' );
 		header( 'Content-Disposition: attachment; filename="co360-ssa-enrollments.csv"' );
 
 		$output = fopen( 'php://output', 'w' );
-		fputcsv( $output, array( 'user_id', 'email', 'study_id', 'study_title', 'code_used', 'center_code', 'center_name', 'investigator_code', 'entry_id', 'created_at' ) );
+		fputcsv( $output, array( 'user_id', 'email', 'first_name', 'last_name', 'study_id', 'study_title', 'code_used', 'center_code', 'center_name', 'investigator_code', 'entry_id', 'created_at' ) );
 		foreach ( $rows as $row ) {
 			$study = get_post( $row['estudio_id'] );
 			fputcsv(
@@ -129,6 +131,8 @@ class Admin {
 				array(
 					$row['user_id'],
 					$row['user_email'] ?? '',
+					$row['first_name'] ?? '',
+					$row['last_name'] ?? '',
 					$row['estudio_id'],
 					$study ? $study->post_title : '',
 					$row['code_used'],

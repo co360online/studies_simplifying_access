@@ -42,12 +42,14 @@ if ( $investigator_code ) {
 }
 
 $join = " LEFT JOIN {$wpdb->users} AS u ON u.ID = {$table}.user_id";
+$join .= " LEFT JOIN {$wpdb->usermeta} AS um_fn ON um_fn.user_id = u.ID AND um_fn.meta_key = 'first_name'";
+$join .= " LEFT JOIN {$wpdb->usermeta} AS um_ln ON um_ln.user_id = u.ID AND um_ln.meta_key = 'last_name'";
 $join .= " LEFT JOIN {$wpdb->posts} AS p ON p.ID = {$table}.estudio_id";
 if ( $search ) {
 	$where .= ' AND u.user_email LIKE %s';
 	$args[] = '%' . $wpdb->esc_like( $search ) . '%';
 }
-$sql = "SELECT {$table}.*, u.user_login, u.user_email, p.post_title AS study_title FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";
+$sql = "SELECT {$table}.*, u.user_login, u.user_email, u.display_name, um_fn.meta_value AS first_name, um_ln.meta_value AS last_name, p.post_title AS study_title FROM {$table}{$join} WHERE {$where} ORDER BY {$table}.created_at DESC";
 $rows = $args ? $wpdb->get_results( $wpdb->prepare( $sql, $args ) ) : $wpdb->get_results( $sql );
 
 $studies = get_posts(
@@ -118,6 +120,8 @@ $center_rows = $center_args ? $wpdb->get_results( $wpdb->prepare( $center_sql, $
 				<th><?php esc_html_e( 'Centro', CO360_SSA_TEXT_DOMAIN ); ?></th>
 				<th><?php esc_html_e( 'Fecha', CO360_SSA_TEXT_DOMAIN ); ?></th>
 				<th><?php esc_html_e( 'Usuario', CO360_SSA_TEXT_DOMAIN ); ?></th>
+				<th><?php esc_html_e( 'Nombre', CO360_SSA_TEXT_DOMAIN ); ?></th>
+				<th><?php esc_html_e( 'Apellidos', CO360_SSA_TEXT_DOMAIN ); ?></th>
 				<th><?php esc_html_e( 'Email', CO360_SSA_TEXT_DOMAIN ); ?></th>
 				<th><?php esc_html_e( 'Estudio', CO360_SSA_TEXT_DOMAIN ); ?></th>
 				<th><?php esc_html_e( 'Código', CO360_SSA_TEXT_DOMAIN ); ?></th>
@@ -126,7 +130,7 @@ $center_rows = $center_args ? $wpdb->get_results( $wpdb->prepare( $center_sql, $
 		</thead>
 		<tbody>
 			<?php if ( empty( $rows ) ) : ?>
-				<tr><td colspan="8"><?php esc_html_e( 'Sin inscripciones.', CO360_SSA_TEXT_DOMAIN ); ?></td></tr>
+				<tr><td colspan="10"><?php esc_html_e( 'Sin inscripciones.', CO360_SSA_TEXT_DOMAIN ); ?></td></tr>
 			<?php else : ?>
 				<?php foreach ( $rows as $row ) : ?>
 					<?php
@@ -135,6 +139,9 @@ $center_rows = $center_args ? $wpdb->get_results( $wpdb->prepare( $center_sql, $
 						if ( '' === trim( (string) $row->center_name ) && '' === trim( (string) $row->center_code ) ) {
 							$center_label = '-';
 						}
+						$first_name = $row->first_name ? $row->first_name : '';
+						$last_name = $row->last_name ? $row->last_name : '';
+						$display_name = $row->display_name ? $row->display_name : '';
 						$entry_link = $entry_id ? admin_url( 'admin.php?page=formidable-entries&frm_action=show&id=' . $entry_id ) : '';
 						?>
 					<tr>
@@ -142,6 +149,8 @@ $center_rows = $center_args ? $wpdb->get_results( $wpdb->prepare( $center_sql, $
 						<td><?php echo esc_html( $center_label ); ?></td>
 						<td><?php echo esc_html( $row->created_at ); ?></td>
 						<td><?php echo esc_html( $row->user_login ?: '-' ); ?></td>
+						<td><?php echo esc_html( $first_name ?: ( $display_name ?: '—' ) ); ?></td>
+						<td><?php echo esc_html( $last_name ?: '—' ); ?></td>
 						<td><?php echo esc_html( $row->user_email ?: '-' ); ?></td>
 						<td><?php echo esc_html( $row->study_title ?: '-' ); ?></td>
 						<td><?php echo esc_html( $row->code_used ); ?></td>

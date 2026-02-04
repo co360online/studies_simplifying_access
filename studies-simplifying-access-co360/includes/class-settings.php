@@ -19,6 +19,7 @@ class Settings {
 		add_settings_field( 'enrollment_page_url', __( 'URL de la página de inscripción (global)', CO360_SSA_TEXT_DOMAIN ), array( $this, 'field_enrollment_page_url' ), 'co360-ssa', 'co360_ssa_main' );
 		add_settings_field( 'login_page_url', __( 'URL de la página de login (opcional)', CO360_SSA_TEXT_DOMAIN ), array( $this, 'field_login_page_url' ), 'co360-ssa', 'co360_ssa_main' );
 		add_settings_field( 'context_ttl', __( 'TTL del token (minutos)', CO360_SSA_TEXT_DOMAIN ), array( $this, 'field_context_ttl' ), 'co360-ssa', 'co360_ssa_main' );
+		add_settings_field( 'investigator_code_field_ids', __( 'Field IDs para investigator_code en CRDs (CSV)', CO360_SSA_TEXT_DOMAIN ), array( $this, 'field_investigator_code_field_ids' ), 'co360-ssa', 'co360_ssa_main' );
 	}
 
 	public function sanitize_options( $opts ) {
@@ -28,6 +29,8 @@ class Settings {
 		$clean['enrollment_page_url'] = isset( $opts['enrollment_page_url'] ) ? Utils::sanitize_url( $opts['enrollment_page_url'] ) : '';
 		$clean['login_page_url'] = isset( $opts['login_page_url'] ) ? Utils::sanitize_url( $opts['login_page_url'] ) : '';
 		$clean['context_ttl'] = isset( $opts['context_ttl'] ) ? max( 5, absint( $opts['context_ttl'] ) ) : 60;
+		$field_ids = Utils::parse_field_ids_option( $opts['investigator_code_field_ids'] ?? '' );
+		$clean['investigator_code_field_ids'] = $field_ids ? implode( ',', $field_ids ) : '';
 		return $clean;
 	}
 
@@ -73,6 +76,15 @@ class Settings {
 			'<input type="number" name="%1$s[context_ttl]" value="%2$s" class="small-text" min="5">',
 			esc_attr( CO360_SSA_OPT_KEY ),
 			esc_attr( $options['context_ttl'] )
+		);
+	}
+
+	public function field_investigator_code_field_ids() {
+		$options = Utils::get_options();
+		printf(
+			'<input type="text" name="%1$s[investigator_code_field_ids]" value="%2$s" class="regular-text" placeholder="87,102,155">',
+			esc_attr( CO360_SSA_OPT_KEY ),
+			esc_attr( $options['investigator_code_field_ids'] )
 		);
 	}
 }

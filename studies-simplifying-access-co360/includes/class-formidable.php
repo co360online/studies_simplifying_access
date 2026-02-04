@@ -16,8 +16,51 @@ class Formidable {
 		add_filter( 'frm_validate_entry', array( $this, 'validate_entry' ), 10, 3 );
 		add_filter( 'frm_setup_new_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
 		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
+		add_filter( 'frm_setup_new_fields_vars', array( $this, 'prepopulate_investigator_code' ), 20, 2 );
+		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'prepopulate_investigator_code' ), 20, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
+	}
+
+	public function prepopulate_investigator_code( $values, $field ) {
+		$study_id = Context::get_current_study_id();
+		if ( ! $study_id ) {
+			return $values;
+		}
+
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			return $values;
+		}
+
+		$options = Utils::get_options();
+		$target_ids = Utils::parse_field_ids_option( $options['investigator_code_field_ids'] ?? '' );
+		if ( empty( $target_ids ) ) {
+			return $values;
+		}
+
+		if ( empty( $field->id ) || ! in_array( (int) $field->id, $target_ids, true ) ) {
+			return $values;
+		}
+
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_TABLE );
+		$code = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT investigator_code FROM {$table} WHERE user_id = %d AND estudio_id = %d ORDER BY created_at DESC LIMIT 1",
+				$user_id,
+				$study_id
+			)
+		);
+		$code = is_string( $code ) ? $code : '';
+		if ( '' === $code ) {
+			return $values;
+		}
+
+		$values['value'] = $code;
+		$values['default_value'] = $code;
+
+		return $values;
 	}
 
 	public function validate_entry( $errors, $values, $exclude ) {

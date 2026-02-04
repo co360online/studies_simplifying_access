@@ -181,6 +181,7 @@ class Plugin {
 		if ( ! $protected_study_id ) {
 			return;
 		}
+		Context::set_current_study_id( $protected_study_id );
 
 		$current_url = get_permalink( $page_id );
 		if ( is_user_logged_in() && current_user_can( 'manage_options' ) ) {

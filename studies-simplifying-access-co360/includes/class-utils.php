@@ -13,6 +13,7 @@ class Utils {
 			'enrollment_page_url' => '',
 			'login_page_url' => '',
 			'context_ttl' => 60,
+			'investigator_code_field_ids' => '',
 		);
 	}
 
@@ -40,6 +41,22 @@ class Utils {
 
 	public static function sanitize_url( $value ) {
 		return esc_url_raw( wp_unslash( $value ) );
+	}
+
+	public static function parse_field_ids_option( $value ) {
+		if ( is_array( $value ) ) {
+			$value = implode( ',', $value );
+		}
+		$parts = preg_split( '/[\s,]+/', (string) $value, -1, PREG_SPLIT_NO_EMPTY );
+		$ids = array();
+		foreach ( $parts as $part ) {
+			$id = absint( $part );
+			if ( $id ) {
+				$ids[] = $id;
+			}
+		}
+		$ids = array_values( array_unique( $ids ) );
+		return $ids;
 	}
 
 	public static function normalize_email( $email ) {

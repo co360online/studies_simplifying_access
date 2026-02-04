@@ -40,6 +40,7 @@ define( 'CO360_SSA_REDIRECT_FLAG', 'co360_ssa' );
 define( 'CO360_SSA_PURGE_ON_UNINSTALL', false );
 
 require_once CO360_SSA_PLUGIN_PATH . 'includes/class-utils.php';
+require_once CO360_SSA_PLUGIN_PATH . 'includes/class-context.php';
 require_once CO360_SSA_PLUGIN_PATH . 'includes/class-db.php';
 require_once CO360_SSA_PLUGIN_PATH . 'includes/class-activator.php';
 require_once CO360_SSA_PLUGIN_PATH . 'includes/class-redirect.php';

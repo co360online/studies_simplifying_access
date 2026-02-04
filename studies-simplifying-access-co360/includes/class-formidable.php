@@ -16,13 +16,13 @@ class Formidable {
 		add_filter( 'frm_validate_entry', array( $this, 'validate_entry' ), 10, 3 );
 		add_filter( 'frm_setup_new_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
 		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'centers_field_vars' ), 20, 2 );
-		add_filter( 'frm_setup_new_fields_vars', array( $this, 'prepopulate_investigator_code' ), 20, 2 );
-		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'prepopulate_investigator_code' ), 20, 2 );
+		add_filter( 'frm_setup_new_fields_vars', array( $this, 'prepopulate_crd_fields' ), 20, 2 );
+		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'prepopulate_crd_fields' ), 20, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
 	}
 
-	public function prepopulate_investigator_code( $values, $field ) {
+	public function prepopulate_crd_fields( $values, $field ) {
 		$study_id = Context::get_current_study_id();
 		if ( ! $study_id ) {
 			return $values;
@@ -34,33 +34,76 @@ class Formidable {
 		}
 
 		$options = Utils::get_options();
-		$target_ids = Utils::parse_field_ids_option( $options['investigator_code_field_ids'] ?? '' );
-		if ( empty( $target_ids ) ) {
+		$investigator_ids = Utils::parse_field_ids_option( $options['crd_field_ids_investigator_code'] ?? '' );
+		$center_name_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_name'] ?? '' );
+		$center_code_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_code'] ?? '' );
+		$code_used_ids = Utils::parse_field_ids_option( $options['crd_field_ids_code_used'] ?? '' );
+		if ( empty( $investigator_ids ) && empty( $center_name_ids ) && empty( $center_code_ids ) && empty( $code_used_ids ) ) {
 			return $values;
 		}
 
-		if ( empty( $field->id ) || ! in_array( (int) $field->id, $target_ids, true ) ) {
+		$field_id = isset( $field->id ) ? (int) $field->id : 0;
+		if ( ! $field_id ) {
 			return $values;
+		}
+
+		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
+		if ( empty( $row ) ) {
+			return $values;
+		}
+
+		$value = '';
+		if ( in_array( $field_id, $investigator_ids, true ) ) {
+			$value = $row['investigator_code'];
+		} elseif ( in_array( $field_id, $center_name_ids, true ) ) {
+			$value = $row['center_name'];
+		} elseif ( in_array( $field_id, $center_code_ids, true ) ) {
+			$value = $row['center_code'];
+		} elseif ( in_array( $field_id, $code_used_ids, true ) ) {
+			$value = $row['code_used'];
+		}
+
+		if ( '' === $value ) {
+			return $values;
+		}
+
+		$values['value'] = $value;
+		$values['default_value'] = $value;
+
+		return $values;
+	}
+
+	private function get_latest_enrollment_row( $user_id, $study_id ) {
+		static $cached = array();
+		$cache_key = $user_id . ':' . $study_id;
+		if ( array_key_exists( $cache_key, $cached ) ) {
+			return $cached[ $cache_key ];
 		}
 
 		global $wpdb;
 		$table = DB::table_name( CO360_SSA_DB_TABLE );
-		$code = $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT investigator_code FROM {$table} WHERE user_id = %d AND estudio_id = %d ORDER BY created_at DESC LIMIT 1",
+				"SELECT investigator_code, center_code, center_name, code_used FROM {$table} WHERE user_id = %d AND estudio_id = %d ORDER BY created_at DESC LIMIT 1",
 				$user_id,
 				$study_id
-			)
+			),
+			ARRAY_A
 		);
-		$code = is_string( $code ) ? $code : '';
-		if ( '' === $code ) {
-			return $values;
+
+		if ( ! $row ) {
+			$cached[ $cache_key ] = array();
+			return array();
 		}
 
-		$values['value'] = $code;
-		$values['default_value'] = $code;
+		$cached[ $cache_key ] = array(
+			'investigator_code' => sanitize_text_field( $row['investigator_code'] ?? '' ),
+			'center_code' => sanitize_text_field( $row['center_code'] ?? '' ),
+			'center_name' => sanitize_text_field( $row['center_name'] ?? '' ),
+			'code_used' => sanitize_text_field( $row['code_used'] ?? '' ),
+		);
 
-		return $values;
+		return $cached[ $cache_key ];
 	}
 
 	public function validate_entry( $errors, $values, $exclude ) {

@@ -12,6 +12,7 @@ class Plugin {
 	private $redirect;
 	private $shortcodes;
 	private $formidable;
+	private $dashboard;
 
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -25,6 +26,7 @@ class Plugin {
 		$this->redirect = new Redirect();
 		$this->shortcodes = new Shortcodes( $this->auth, $this->redirect );
 		$this->formidable = new Formidable( $this->auth );
+		$this->dashboard = new Dashboard();
 
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
@@ -38,6 +40,7 @@ class Plugin {
 		$this->redirect->register();
 		$this->shortcodes->register();
 		$this->formidable->register();
+		$this->dashboard->register();
 	}
 
 	public function load_textdomain() {

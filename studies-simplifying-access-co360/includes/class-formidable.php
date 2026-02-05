@@ -431,6 +431,8 @@ class Formidable {
 			\FrmEntryMeta::update_entry_meta( $entry_id, 0, $investigator_code, 'co360_ssa_investigator_code' );
 		}
 
+		Dashboard::flush_study_cache( $study_id );
+
 		if ( 2 === Utils::get_debug_level() ) {
 			Utils::log(
 				sprintf(
@@ -518,6 +520,8 @@ class Formidable {
 			}
 			$this->update_entry_meta_if_empty( $entry_id, $field_id, $value );
 		}
+
+		Dashboard::flush_study_cache( $study_id );
 
 		if ( 2 === Utils::get_debug_level() ) {
 			error_log( '[SSA CRD] persist entry_id=' . $entry_id . ' form_id=' . $form_id . ' map=' . wp_json_encode( $map ) . ' values=' . wp_json_encode( $values ) );

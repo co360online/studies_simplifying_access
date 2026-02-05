@@ -28,6 +28,11 @@
 4. Añade también un campo hidden `study_id` en cada CRD para guardar automáticamente el estudio activo en cada envío.
 5. Evita marcar esos campos como **Disabled**, **Admin Only** o esconderlos con lógica condicional, para que se rendericen correctamente en CRD.
 
+### Dashboard de Estudios (admin)
+- Menú: **Studies Simplifying Access > Dashboard**.
+- Selecciona un estudio para ver KPIs, centros e investigadores recientes.
+- Si falta `study_id_field_id` en los mapeos CRD, el KPI de CRDs mostrará un aviso de configuración.
+
 ### Shortcodes disponibles
 - `[acceso_estudio study_id="123" title="Acceso" button_text="Acceder" require_code="1"]`
 - `[co360_ssa_form_context]`
@@ -47,3 +52,7 @@
 ## Debug
 - `?ssa_debug=1` muestra notices ligeros.
 - `?ssa_debug=2` detiene redirecciones y muestra panel de diagnóstico.
+
+
+## Changelog
+- **1.0.1**: Añadido Dashboard de Estudios (admin), selector por estudio con KPIs/tablas, y cache temporal con invalidación en inscripciones/CRDs.

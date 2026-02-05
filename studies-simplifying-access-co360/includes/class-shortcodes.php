@@ -23,6 +23,7 @@ class Shortcodes {
 		add_shortcode( 'co360_ssa_login', array( $this, 'shortcode_login' ) );
 		add_shortcode( 'co360_ssa_my_studies', array( $this, 'shortcode_my_studies' ) );
 		add_shortcode( 'co360_ssa_my_investigator_data', array( $this, 'shortcode_my_investigator_data' ) );
+		add_shortcode( 'co360_ssa_crd_submission_number', array( $this, 'shortcode_crd_submission_number' ) );
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_ajax_nopriv_co360_ssa_check_login', array( $this, 'ajax_check_login' ) );
@@ -690,6 +691,107 @@ JS;
 		wp_set_auth_cookie( $user->ID, true );
 
 		return $redirect_to ? $redirect_to : home_url( '/' );
+	}
+
+
+	public function shortcode_crd_submission_number( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'form_id' => 0,
+			),
+			$atts,
+			'co360_ssa_crd_submission_number'
+		);
+
+		$user_id = get_current_user_id();
+		$study_id = Context::get_current_study_id();
+		if ( ! $user_id || ! $study_id ) {
+			return '1';
+		}
+
+		$form_id = absint( $atts['form_id'] );
+		if ( ! $form_id ) {
+			$form_id = $this->detect_current_crd_form_id( $study_id );
+		}
+		if ( ! $form_id ) {
+			return '1';
+		}
+
+		$map = StudyConfig::get_crd_map( $study_id, $form_id );
+		if ( ! $map ) {
+			return '1';
+		}
+
+		$cache_key = 'ssa_crd_count_' . $user_id . '_' . $study_id . '_' . $form_id;
+		$cached = wp_cache_get( $cache_key, 'co360_ssa' );
+		if ( false !== $cached ) {
+			return (string) ( (int) $cached + 1 );
+		}
+
+		global $wpdb;
+		$frm_items = $wpdb->prefix . 'frm_items';
+		$frm_item_metas = $wpdb->prefix . 'frm_item_metas';
+		$count = 0;
+
+		$investigator_field_id = absint( $map['investigator_code_field_id'] ?? 0 );
+		$investigator_code = $this->get_current_study_investigator_code( $user_id, $study_id );
+		if ( $investigator_field_id && '' !== $investigator_code ) {
+			$count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$frm_items} fi INNER JOIN {$frm_item_metas} fim ON fim.item_id = fi.id AND fim.field_id = %d AND fim.meta_value = %s WHERE fi.user_id = %d AND fi.form_id = %d",
+					$investigator_field_id,
+					$investigator_code,
+					$user_id,
+					$form_id
+				)
+			);
+		} else {
+			$count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$frm_items} fi WHERE fi.user_id = %d AND fi.form_id = %d",
+					$user_id,
+					$form_id
+				)
+			);
+		}
+
+		wp_cache_set( $cache_key, $count, 'co360_ssa', 60 );
+		return (string) ( $count + 1 );
+	}
+
+	private function detect_current_crd_form_id( $study_id ) {
+		$global_form = $GLOBALS['frm_form'] ?? null;
+		if ( is_object( $global_form ) && ! empty( $global_form->id ) ) {
+			$form_id = absint( $global_form->id );
+			if ( StudyConfig::is_crd_form( $study_id, $form_id ) ) {
+				return $form_id;
+			}
+		}
+		$frm_vars = $GLOBALS['frm_vars'] ?? array();
+		if ( isset( $frm_vars['form'] ) && is_object( $frm_vars['form'] ) && ! empty( $frm_vars['form']->id ) ) {
+			$form_id = absint( $frm_vars['form']->id );
+			if ( StudyConfig::is_crd_form( $study_id, $form_id ) ) {
+				return $form_id;
+			}
+		}
+		$mappings = StudyConfig::get_crd_mappings( $study_id );
+		if ( 1 === count( $mappings ) ) {
+			return absint( $mappings[0]['form_id'] ?? 0 );
+		}
+		return 0;
+	}
+
+	private function get_current_study_investigator_code( $user_id, $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_TABLE );
+		$code = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT investigator_code FROM {$table} WHERE user_id = %d AND estudio_id = %d ORDER BY created_at DESC LIMIT 1",
+				$user_id,
+				$study_id
+			)
+		);
+		return is_string( $code ) ? sanitize_text_field( $code ) : '';
 	}
 
 	public function shortcode_my_studies( $atts ) {

@@ -33,6 +33,7 @@
 - `[co360_ssa_enrollment study_id="123" form_id="456"]`
 - `[co360_ssa_stats study_id="123" days="30" chart="line" show_totals="1"]`
 - `[co360_ssa_login title="Login" show_labels="1" show_remember="1"]`
+- `[co360_ssa_crd_submission_number form_id="4"]` (si omites `form_id`, intenta detectarlo por contexto CRD)
 
 ### Flujo recomendado
 1. Página de acceso con `[acceso_estudio]` para capturar email+codigo.

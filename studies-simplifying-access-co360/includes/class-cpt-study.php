@@ -69,6 +69,7 @@ class CPT_Study {
 		<div class="co360-ssa-crd-mappings">
 			<strong><?php esc_html_e( 'CRD – Autorrelleno', CO360_SSA_TEXT_DOMAIN ); ?></strong>
 			<p class="description"><?php esc_html_e( 'Configura aquí los formularios CRD y los Field IDs que se autopoblarán en este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+			<p class="description"><?php esc_html_e( 'Para el campo de número de envío en Formidable, usa el shortcode [co360_ssa_crd_submission_number] como valor por defecto.', CO360_SSA_TEXT_DOMAIN ); ?></p>
 			<table class="widefat striped" id="co360-ssa-crd-mappings">
 				<thead>
 					<tr>

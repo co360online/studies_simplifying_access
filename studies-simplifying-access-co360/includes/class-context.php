@@ -52,6 +52,18 @@ class Context {
 			}
 		}
 
+		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
+		if ( '' !== $token ) {
+			$context = ( new Auth() )->get_context_by_token( $token );
+			if ( $context ) {
+				$study_id = absint( $context['study_id'] ?? 0 );
+				if ( $study_id ) {
+					self::set_current_study_id( $study_id );
+					return $study_id;
+				}
+			}
+		}
+
 		return 0;
 	}
 }

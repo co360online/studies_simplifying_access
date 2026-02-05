@@ -48,15 +48,14 @@ class Formidable {
 		}
 
 		$mapping = StudyConfig::get_crd_map( $study_id, $form_id );
-		if ( ! $mapping ) {
-			return $values;
-		}
+		$row = $mapping ? $this->get_latest_enrollment_row( $user_id, $study_id ) : array();
+
 		if ( 2 === Utils::get_debug_level() ) {
-			Utils::log( sprintf( 'Debug CRD prepopulate: form_id=%d study_id=%d field_id=%d map=%s', $form_id, $study_id, $field_id, wp_json_encode( $mapping ) ) );
+			$page_id = is_page() ? absint( get_queried_object_id() ) : 0;
+			error_log( '[SSA CRD] page_id=' . $page_id . ' study_id=' . $study_id . ' user_id=' . $user_id . ' form_id=' . $form_id . ' field_id=' . $field_id . ' map_found=' . ( $mapping ? 1 : 0 ) . ' insc_found=' . ( empty( $row ) ? 0 : 1 ) );
 		}
 
-		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
-		if ( empty( $row ) ) {
+		if ( ! $mapping || empty( $row ) ) {
 			return $values;
 		}
 
@@ -75,7 +74,7 @@ class Formidable {
 			return $values;
 		}
 		if ( 2 === Utils::get_debug_level() ) {
-			Utils::log( sprintf( 'Debug CRD prepopulate fill: form_id=%d field_id=%d value=%s', $form_id, $field_id, $value ) );
+			error_log( '[SSA CRD] fill form_id=' . $form_id . ' field_id=' . $field_id . ' value=' . $value );
 		}
 
 		$values['value'] = $value;
@@ -468,6 +467,10 @@ class Formidable {
 
 		$map = StudyConfig::get_crd_map( $study_id, $form_id );
 		if ( ! $map ) {
+			if ( 2 === Utils::get_debug_level() ) {
+				$page_id = is_page() ? absint( get_queried_object_id() ) : 0;
+				error_log( '[SSA CRD] persist page_id=' . $page_id . ' study_id=' . $study_id . ' form_id=' . $form_id . ' map_found=0' );
+			}
 			return;
 		}
 
@@ -483,6 +486,10 @@ class Formidable {
 		}
 
 		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
+		if ( 2 === Utils::get_debug_level() ) {
+			$page_id = is_page() ? absint( get_queried_object_id() ) : 0;
+			error_log( '[SSA CRD] persist page_id=' . $page_id . ' study_id=' . $study_id . ' user_id=' . $user_id . ' form_id=' . $form_id . ' map_found=1 insc_found=' . ( empty( $row ) ? 0 : 1 ) );
+		}
 		if ( empty( $row ) ) {
 			return;
 		}
@@ -503,16 +510,7 @@ class Formidable {
 		}
 
 		if ( 2 === Utils::get_debug_level() ) {
-			Utils::log(
-				sprintf(
-					'Debug CRD persist: form_id=%d entry_id=%d study_id=%d map=%s values=%s',
-					$form_id,
-					$entry_id,
-					$study_id,
-					wp_json_encode( $map ),
-					wp_json_encode( $values )
-				)
-			);
+			error_log( '[SSA CRD] persist entry_id=' . $entry_id . ' form_id=' . $form_id . ' map=' . wp_json_encode( $map ) . ' values=' . wp_json_encode( $values ) );
 		}
 	}
 

@@ -212,15 +212,130 @@ class CPT_Study {
 		<p>
 			<strong><?php esc_html_e( 'Páginas protegidas', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
 			<?php
-			$pages = get_pages();
 			$protected = is_array( $meta['protected_pages'] ) ? array_map( 'absint', $meta['protected_pages'] ) : array();
-			foreach ( $pages as $page ) :
-				?>
-				<label style="display:block; margin:4px 0;">
-					<input type="checkbox" name="co360_ssa_protected_pages[]" value="<?php echo esc_attr( $page->ID ); ?>" <?php checked( in_array( $page->ID, $protected, true ) ); ?>>
-					<?php echo esc_html( $page->post_title ); ?>
-				</label>
-			<?php endforeach; ?>
+			$protected = array_values( array_unique( array_filter( $protected ) ) );
+			$landing_id = absint( $meta['study_page_id'] );
+			$pages = array();
+			$descendant_ids = array();
+			if ( $landing_id ) {
+				$landing_page = get_post( $landing_id );
+				if ( $landing_page instanceof \WP_Post && 'page' === $landing_page->post_type ) {
+					$pages[] = $landing_page;
+				}
+				$descendants = get_pages(
+					array(
+						'child_of' => $landing_id,
+						'sort_column' => 'menu_order,post_title',
+					)
+				);
+				foreach ( $descendants as $descendant ) {
+					$pages[] = $descendant;
+					$descendant_ids[] = (int) $descendant->ID;
+				}
+			} else {
+				$pages = get_pages(
+					array(
+						'sort_column' => 'menu_order,post_title',
+					)
+				);
+			}
+			?>
+			<div class="co360-ssa-protected-pages-tools">
+				<p class="description"><?php esc_html_e( 'Selecciona la landing y sus páginas hijas/descendientes para proteger este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+				<p>
+					<button type="button" class="button" id="co360-ssa-select-subtree"><?php esc_html_e( 'Seleccionar landing + hijas', CO360_SSA_TEXT_DOMAIN ); ?></button>
+					<button type="button" class="button" id="co360-ssa-select-landing"><?php esc_html_e( 'Seleccionar solo landing', CO360_SSA_TEXT_DOMAIN ); ?></button>
+					<button type="button" class="button" id="co360-ssa-deselect-all"><?php esc_html_e( 'Deseleccionar todo', CO360_SSA_TEXT_DOMAIN ); ?></button>
+				</p>
+				<p>
+					<input type="search" id="co360-ssa-page-search" class="regular-text" placeholder="<?php echo esc_attr__( 'Buscar página…', CO360_SSA_TEXT_DOMAIN ); ?>">
+				</p>
+			</div>
+			<div id="co360-ssa-protected-pages-list" style="max-height:280px; overflow:auto; border:1px solid #ccd0d4; padding:8px 12px;">
+				<?php if ( empty( $pages ) ) : ?>
+					<p><em><?php esc_html_e( 'No hay páginas disponibles para seleccionar.', CO360_SSA_TEXT_DOMAIN ); ?></em></p>
+				<?php else : ?>
+					<?php
+					foreach ( $pages as $page ) :
+						$page_id = (int) $page->ID;
+						$depth = 0;
+						$current_parent = (int) $page->post_parent;
+						while ( $current_parent > 0 ) {
+							$depth++;
+							if ( $landing_id && $current_parent === $landing_id ) {
+								break;
+							}
+							$parent_post = get_post( $current_parent );
+							if ( ! $parent_post instanceof \WP_Post ) {
+								break;
+							}
+							$current_parent = (int) $parent_post->post_parent;
+						}
+						$prefix = $depth > 0 ? str_repeat( '— ', $depth ) : '';
+						?>
+						<label class="co360-ssa-page-row" data-page-title="<?php echo esc_attr( strtolower( remove_accents( (string) $page->post_title ) ) ); ?>" style="display:block; margin:4px 0;">
+							<input
+								type="checkbox"
+								name="co360_ssa_protected_pages[]"
+								value="<?php echo esc_attr( $page_id ); ?>"
+								data-is-landing="<?php echo esc_attr( $landing_id && $page_id === $landing_id ? '1' : '0' ); ?>"
+								data-in-subtree="<?php echo esc_attr( ( $landing_id && ( $page_id === $landing_id || in_array( $page_id, $descendant_ids, true ) ) ) ? '1' : '0' ); ?>"
+								<?php checked( in_array( $page_id, $protected, true ) ); ?>
+							>
+							<?php echo esc_html( $prefix . $page->post_title ); ?> <small style="color:#666;">#<?php echo esc_html( (string) $page_id ); ?></small>
+						</label>
+					<?php endforeach; ?>
+				<?php endif; ?>
+			</div>
+			<script>
+				( function() {
+					const root = document.getElementById( 'co360-ssa-protected-pages-list' );
+					if ( ! root ) {
+						return;
+					}
+					const setCheckedByData = function( dataKey, expectedValue, checked ) {
+						root.querySelectorAll( 'input[type="checkbox"][name="co360_ssa_protected_pages[]"]' ).forEach( function( input ) {
+							if ( input.getAttribute( dataKey ) === expectedValue ) {
+								input.checked = checked;
+							}
+						} );
+					};
+					const btnSubtree = document.getElementById( 'co360-ssa-select-subtree' );
+					const btnLanding = document.getElementById( 'co360-ssa-select-landing' );
+					const btnDeselect = document.getElementById( 'co360-ssa-deselect-all' );
+					const searchInput = document.getElementById( 'co360-ssa-page-search' );
+					if ( btnSubtree ) {
+						btnSubtree.addEventListener( 'click', function( event ) {
+							event.preventDefault();
+							setCheckedByData( 'data-in-subtree', '1', true );
+						} );
+					}
+					if ( btnLanding ) {
+						btnLanding.addEventListener( 'click', function( event ) {
+							event.preventDefault();
+							setCheckedByData( 'data-in-subtree', '1', false );
+							setCheckedByData( 'data-is-landing', '1', true );
+						} );
+					}
+					if ( btnDeselect ) {
+						btnDeselect.addEventListener( 'click', function( event ) {
+							event.preventDefault();
+							root.querySelectorAll( 'input[type="checkbox"][name="co360_ssa_protected_pages[]"]' ).forEach( function( input ) {
+								input.checked = false;
+							} );
+						} );
+					}
+					if ( searchInput ) {
+						searchInput.addEventListener( 'input', function() {
+							const term = searchInput.value.toLowerCase().trim();
+							root.querySelectorAll( '.co360-ssa-page-row' ).forEach( function( row ) {
+								const title = row.getAttribute( 'data-page-title' ) || '';
+								row.style.display = '' === term || title.indexOf( term ) !== -1 ? 'block' : 'none';
+							} );
+						} );
+					}
+				}() );
+			</script>
 		</p>
 		<p>
 			<label>
@@ -260,6 +375,7 @@ class CPT_Study {
 		if ( isset( $_POST['co360_ssa_protected_pages'] ) && is_array( $_POST['co360_ssa_protected_pages'] ) ) {
 			$protected_pages = array_map( 'absint', wp_unslash( $_POST['co360_ssa_protected_pages'] ) );
 		}
+		$protected_pages = array_values( array_unique( array_filter( $protected_pages ) ) );
 		update_post_meta( $post_id, '_co360_ssa_protected_pages', $protected_pages );
 
 		$raw_mappings = $_POST['co360_ssa_crd_mappings'] ?? array();

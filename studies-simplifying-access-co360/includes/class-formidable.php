@@ -19,6 +19,7 @@ class Formidable {
 		add_filter( 'frm_setup_new_fields_vars', array( $this, 'prepopulate_crd_fields' ), 20, 2 );
 		add_filter( 'frm_setup_edit_fields_vars', array( $this, 'prepopulate_crd_fields' ), 20, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
+		add_action( 'frm_after_create_entry', array( $this, 'crd_after_create_entry' ), 30, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
 	}
 
@@ -50,6 +51,9 @@ class Formidable {
 		if ( ! $mapping ) {
 			return $values;
 		}
+		if ( 2 === Utils::get_debug_level() ) {
+			Utils::log( sprintf( 'Debug CRD prepopulate: form_id=%d study_id=%d field_id=%d map=%s', $form_id, $study_id, $field_id, wp_json_encode( $mapping ) ) );
+		}
 
 		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
 		if ( empty( $row ) ) {
@@ -69,6 +73,9 @@ class Formidable {
 
 		if ( '' === $value ) {
 			return $values;
+		}
+		if ( 2 === Utils::get_debug_level() ) {
+			Utils::log( sprintf( 'Debug CRD prepopulate fill: form_id=%d field_id=%d value=%s', $form_id, $field_id, $value ) );
 		}
 
 		$values['value'] = $value;
@@ -453,6 +460,62 @@ class Formidable {
 		( new Redirect() )->safe_redirect( home_url( '/' ) );
 	}
 
+	public function crd_after_create_entry( $entry_id, $form_id ) {
+		$study_id = Context::get_current_study_id();
+		if ( ! $study_id ) {
+			return;
+		}
+
+		$map = StudyConfig::get_crd_map( $study_id, $form_id );
+		if ( ! $map ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+		if ( ! $user_id && class_exists( '\FrmEntry' ) ) {
+			$entry = \FrmEntry::getOne( $entry_id );
+			if ( $entry && isset( $entry->user_id ) ) {
+				$user_id = absint( $entry->user_id );
+			}
+		}
+		if ( ! $user_id ) {
+			return;
+		}
+
+		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
+		if ( empty( $row ) ) {
+			return;
+		}
+
+		$values = array(
+			'investigator_code_field_id' => $row['investigator_code'],
+			'center_field_id' => $this->format_center_label( $row['center_name'], $row['center_code'] ),
+			'center_code_field_id' => $row['center_code'],
+			'code_used_field_id' => $row['code_used'],
+		);
+
+		foreach ( $values as $map_key => $value ) {
+			$field_id = absint( $map[ $map_key ] ?? 0 );
+			if ( ! $field_id || '' === $value ) {
+				continue;
+			}
+			$this->update_entry_meta_if_empty( $entry_id, $field_id, $value );
+		}
+
+		if ( 2 === Utils::get_debug_level() ) {
+			Utils::log(
+				sprintf(
+					'Debug CRD persist: form_id=%d entry_id=%d study_id=%d map=%s values=%s',
+					$form_id,
+					$entry_id,
+					$study_id,
+					wp_json_encode( $map ),
+					wp_json_encode( $values )
+				)
+			);
+		}
+	}
+
 	public function handle_registration_after_entry( $entry_id, $form_id ) {
 		if ( ! class_exists( '\FrmEntry' ) ) {
 			return;
@@ -778,4 +841,58 @@ class Formidable {
 		}
 		return $center_code . '-' . $seq_str;
 	}
+
+	private function update_entry_meta_if_empty( $entry_id, $field_id, $value ) {
+		$value = sanitize_text_field( $value );
+		if ( '' === $value ) {
+			return;
+		}
+
+		$existing = '';
+		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'get_entry_meta_by_field' ) ) {
+			$existing = (string) \FrmEntryMeta::get_entry_meta_by_field( $entry_id, $field_id, true );
+		}
+		if ( '' !== trim( $existing ) ) {
+			return;
+		}
+
+		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
+			\FrmEntryMeta::update_entry_meta( $entry_id, $field_id, null, $value );
+			return;
+		}
+
+		$this->upsert_entry_meta_fallback( $entry_id, $field_id, $value );
+	}
+
+	private function upsert_entry_meta_fallback( $entry_id, $field_id, $value ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'frm_item_metas';
+		$meta_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE item_id = %d AND field_id = %d LIMIT 1",
+				$entry_id,
+				$field_id
+			)
+		);
+		if ( $meta_id ) {
+			$wpdb->update(
+				$table,
+				array( 'meta_value' => $value ),
+				array( 'id' => (int) $meta_id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+			return;
+		}
+		$wpdb->insert(
+			$table,
+			array(
+				'item_id' => $entry_id,
+				'field_id' => $field_id,
+				'meta_value' => $value,
+			),
+			array( '%d', '%d', '%s' )
+		);
+	}
+
 }

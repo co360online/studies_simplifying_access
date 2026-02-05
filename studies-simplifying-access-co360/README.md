@@ -26,6 +26,7 @@
    - Form ID del formulario CRD.
    - Field IDs de investigator_code, center (combinado), y code_used (center_code es opcional).
 3. En Formidable, marca esos campos como **Read-only** si quieres que sean visibles pero no editables.
+4. Evita marcar esos campos como **Disabled**, **Admin Only** o esconderlos con lógica condicional, para que se rendericen correctamente en CRD.
 
 ### Shortcodes disponibles
 - `[acceso_estudio study_id="123" title="Acceso" button_text="Acceder" require_code="1"]`

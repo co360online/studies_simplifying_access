@@ -18,6 +18,14 @@
    - URL de inscripción global.
    - URL de login personalizada (opcional).
    - TTL del token (minutos).
+   - (Opcional) configuración global de CRD si aún no defines mapeos por estudio.
+
+### Autorrelleno CRD por estudio
+1. En **Estudios**, edita el estudio correspondiente.
+2. En el metabox **CRD – Autorrelleno**, añade una fila por cada formulario CRD del estudio e indica:
+   - Form ID del formulario CRD.
+   - Field IDs de investigator_code, center (combinado), y code_used (center_code es opcional).
+3. En Formidable, marca esos campos como **Read-only** si quieres que sean visibles pero no editables.
 
 ### Shortcodes disponibles
 - `[acceso_estudio study_id="123" title="Acceso" button_text="Acceder" require_code="1"]`

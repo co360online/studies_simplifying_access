@@ -49,6 +49,7 @@ class CPT_Study {
 	public function render_metabox( $post ) {
 		wp_nonce_field( 'co360_ssa_study_meta', 'co360_ssa_study_meta_nonce' );
 		$meta = Utils::get_study_meta( $post->ID );
+		$crd_mappings = StudyConfig::get_crd_mappings( $post->ID );
 		if ( empty( $meta['activo'] ) ) {
 			$meta['activo'] = '1';
 		}
@@ -65,6 +66,84 @@ class CPT_Study {
 			<strong><?php esc_html_e( 'URL del CRD', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
 			<input type="url" name="co360_ssa_crd_url" value="<?php echo esc_attr( $meta['crd_url'] ); ?>" class="regular-text" placeholder="https://...">
 		</p>
+		<div class="co360-ssa-crd-mappings">
+			<strong><?php esc_html_e( 'CRD – Autorrelleno', CO360_SSA_TEXT_DOMAIN ); ?></strong>
+			<p class="description"><?php esc_html_e( 'Añade una fila por formulario CRD y completa los Field IDs a autopoblar.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+			<table class="widefat striped" id="co360-ssa-crd-mappings">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Form ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'investigator_code Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'center Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'center_code Field ID (opcional)', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'code_used Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'Acciones', CO360_SSA_TEXT_DOMAIN ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php
+					$crd_mappings = $crd_mappings ? $crd_mappings : array(
+						array(
+							'form_id' => 0,
+							'investigator_code_field_id' => 0,
+							'center_field_id' => 0,
+							'center_code_field_id' => 0,
+							'code_used_field_id' => 0,
+						),
+					);
+					$crd_index = 0;
+					foreach ( $crd_mappings as $mapping ) :
+						?>
+						<tr>
+							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][form_id]" value="<?php echo esc_attr( $mapping['form_id'] ?? 0 ); ?>"></td>
+							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][investigator_code_field_id]" value="<?php echo esc_attr( $mapping['investigator_code_field_id'] ?? 0 ); ?>"></td>
+							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][center_field_id]" value="<?php echo esc_attr( $mapping['center_field_id'] ?? 0 ); ?>"></td>
+							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][center_code_field_id]" value="<?php echo esc_attr( $mapping['center_code_field_id'] ?? 0 ); ?>"></td>
+							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][code_used_field_id]" value="<?php echo esc_attr( $mapping['code_used_field_id'] ?? 0 ); ?>"></td>
+							<td><button type="button" class="button link-button co360-ssa-remove-row"><?php esc_html_e( 'Quitar', CO360_SSA_TEXT_DOMAIN ); ?></button></td>
+						</tr>
+						<?php
+						$crd_index++;
+					endforeach;
+					?>
+				</tbody>
+			</table>
+			<p><button type="button" class="button" id="co360-ssa-add-crd-row"><?php esc_html_e( 'Añadir fila', CO360_SSA_TEXT_DOMAIN ); ?></button></p>
+			<script>
+				( function() {
+					const table = document.getElementById( 'co360-ssa-crd-mappings' );
+					if ( ! table ) {
+						return;
+					}
+					let index = <?php echo (int) $crd_index; ?>;
+					const addButton = document.getElementById( 'co360-ssa-add-crd-row' );
+					const onRemove = function( event ) {
+						if ( event.target && event.target.classList.contains( 'co360-ssa-remove-row' ) ) {
+							const row = event.target.closest( 'tr' );
+							if ( row ) {
+								row.remove();
+							}
+						}
+					};
+					table.addEventListener( 'click', onRemove );
+					if ( addButton ) {
+						addButton.addEventListener( 'click', function( event ) {
+							event.preventDefault();
+							const row = document.createElement( 'tr' );
+							row.innerHTML = '' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][form_id]" value=""></td>' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][investigator_code_field_id]" value=""></td>' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][center_field_id]" value=""></td>' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][center_code_field_id]" value=""></td>' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][code_used_field_id]" value=""></td>' +
+								'<td><button type="button" class="button link-button co360-ssa-remove-row"><?php echo esc_js( __( 'Quitar', CO360_SSA_TEXT_DOMAIN ) ); ?></button></td>';
+							table.querySelector( 'tbody' ).appendChild( row );
+							index++;
+						} );
+					}
+				}() );
+			</script>
+		</div>
 		<p>
 			<strong><?php esc_html_e( 'Formulario de inscripción (Formidable) — opcional', CO360_SSA_TEXT_DOMAIN ); ?></strong><br>
 			<input type="number" name="co360_ssa_enroll_form_id" value="<?php echo esc_attr( $meta['enroll_form_id'] ); ?>" class="small-text">
@@ -177,6 +256,11 @@ class CPT_Study {
 			$protected_pages = array_map( 'absint', wp_unslash( $_POST['co360_ssa_protected_pages'] ) );
 		}
 		update_post_meta( $post_id, '_co360_ssa_protected_pages', $protected_pages );
+
+		$raw_mappings = $_POST['co360_ssa_crd_mappings'] ?? array();
+		$raw_mappings = is_array( $raw_mappings ) ? $raw_mappings : array();
+		$crd_mappings = StudyConfig::sanitize_crd_mappings( $raw_mappings );
+		update_post_meta( $post_id, '_co360_ssa_crd_mappings', $crd_mappings );
 
 		$this->sync_centers_seed( $post_id, $centers_seed );
 	}

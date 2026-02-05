@@ -33,18 +33,31 @@ class Formidable {
 			return $values;
 		}
 
-		$options = Utils::get_options();
-		$investigator_ids = Utils::parse_field_ids_option( $options['crd_field_ids_investigator_code'] ?? '' );
-		$center_name_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_name'] ?? '' );
-		$center_code_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_code'] ?? '' );
-		$code_used_ids = Utils::parse_field_ids_option( $options['crd_field_ids_code_used'] ?? '' );
-		if ( empty( $investigator_ids ) && empty( $center_name_ids ) && empty( $center_code_ids ) && empty( $code_used_ids ) ) {
-			return $values;
-		}
-
 		$field_id = isset( $field->id ) ? (int) $field->id : 0;
 		if ( ! $field_id ) {
 			return $values;
+		}
+
+		$form_id = isset( $field->form_id ) ? (int) $field->form_id : 0;
+		if ( ! $form_id ) {
+			$form_id = isset( $values['form_id'] ) ? (int) $values['form_id'] : 0;
+		}
+
+		$mapping = array();
+		$mappings = StudyConfig::get_crd_mappings( $study_id );
+		if ( $mappings ) {
+			if ( ! $form_id ) {
+				return $values;
+			}
+			foreach ( $mappings as $row ) {
+				if ( (int) ( $row['form_id'] ?? 0 ) === $form_id ) {
+					$mapping = $row;
+					break;
+				}
+			}
+			if ( empty( $mapping ) ) {
+				return $values;
+			}
 		}
 
 		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
@@ -53,14 +66,34 @@ class Formidable {
 		}
 
 		$value = '';
-		if ( in_array( $field_id, $investigator_ids, true ) ) {
-			$value = $row['investigator_code'];
-		} elseif ( in_array( $field_id, $center_name_ids, true ) ) {
-			$value = $row['center_name'];
-		} elseif ( in_array( $field_id, $center_code_ids, true ) ) {
-			$value = $row['center_code'];
-		} elseif ( in_array( $field_id, $code_used_ids, true ) ) {
-			$value = $row['code_used'];
+		if ( $mapping ) {
+			if ( $field_id === (int) ( $mapping['investigator_code_field_id'] ?? 0 ) ) {
+				$value = $row['investigator_code'];
+			} elseif ( $field_id === (int) ( $mapping['center_field_id'] ?? 0 ) ) {
+				$value = $this->format_center_label( $row['center_name'], $row['center_code'] );
+			} elseif ( $field_id === (int) ( $mapping['center_code_field_id'] ?? 0 ) ) {
+				$value = $row['center_code'];
+			} elseif ( $field_id === (int) ( $mapping['code_used_field_id'] ?? 0 ) ) {
+				$value = $row['code_used'];
+			}
+		} else {
+			$options = Utils::get_options();
+			$investigator_ids = Utils::parse_field_ids_option( $options['crd_field_ids_investigator_code'] ?? '' );
+			$center_name_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_name'] ?? '' );
+			$center_code_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_code'] ?? '' );
+			$code_used_ids = Utils::parse_field_ids_option( $options['crd_field_ids_code_used'] ?? '' );
+			if ( empty( $investigator_ids ) && empty( $center_name_ids ) && empty( $center_code_ids ) && empty( $code_used_ids ) ) {
+				return $values;
+			}
+			if ( in_array( $field_id, $investigator_ids, true ) ) {
+				$value = $row['investigator_code'];
+			} elseif ( in_array( $field_id, $center_name_ids, true ) ) {
+				$value = $row['center_name'];
+			} elseif ( in_array( $field_id, $center_code_ids, true ) ) {
+				$value = $row['center_code'];
+			} elseif ( in_array( $field_id, $code_used_ids, true ) ) {
+				$value = $row['code_used'];
+			}
 		}
 
 		if ( '' === $value ) {
@@ -104,6 +137,18 @@ class Formidable {
 		);
 
 		return $cached[ $cache_key ];
+	}
+
+	private function format_center_label( $center_name, $center_code ) {
+		$center_name = trim( (string) $center_name );
+		$center_code = trim( (string) $center_code );
+		if ( '' === $center_name && '' === $center_code ) {
+			return '';
+		}
+		if ( '' !== $center_name && '' !== $center_code ) {
+			return sprintf( '%s (%s)', $center_name, $center_code );
+		}
+		return $center_name ? $center_name : $center_code;
 	}
 
 	public function validate_entry( $errors, $values, $exclude ) {

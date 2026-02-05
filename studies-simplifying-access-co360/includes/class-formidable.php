@@ -68,6 +68,11 @@ class Formidable {
 			$value = $row['center_code'];
 		} elseif ( $field_id === (int) ( $mapping['code_used_field_id'] ?? 0 ) ) {
 			$value = $row['code_used'];
+		} else {
+			$study_field_id = $this->get_crd_study_id_field_id( $form_id, $mapping );
+			if ( $study_field_id && $field_id === $study_field_id ) {
+				$value = (string) $study_id;
+			}
 		}
 
 		if ( '' === $value ) {
@@ -485,6 +490,11 @@ class Formidable {
 			return;
 		}
 
+		$study_field_id = $this->get_crd_study_id_field_id( $form_id, $map );
+		if ( $study_field_id ) {
+			$this->force_entry_meta_value( $entry_id, $study_field_id, (string) $study_id );
+		}
+
 		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
 		if ( 2 === Utils::get_debug_level() ) {
 			$page_id = is_page() ? absint( get_queried_object_id() ) : 0;
@@ -838,6 +848,47 @@ class Formidable {
 			return '';
 		}
 		return $center_code . '-' . $seq_str;
+	}
+
+	private function get_crd_study_id_field_id( $form_id, $mapping ) {
+		$field_id = absint( $mapping['study_id_field_id'] ?? 0 );
+		if ( $field_id ) {
+			return $field_id;
+		}
+		return $this->detect_study_id_field_id_by_key( $form_id );
+	}
+
+	private function detect_study_id_field_id_by_key( $form_id ) {
+		if ( ! class_exists( '\FrmField' ) || ! method_exists( '\FrmField', 'get_all_for_form' ) ) {
+			return 0;
+		}
+		$fields = \FrmField::get_all_for_form( absint( $form_id ), '', 'include' );
+		if ( ! is_array( $fields ) ) {
+			return 0;
+		}
+		foreach ( $fields as $field ) {
+			if ( ! is_object( $field ) ) {
+				continue;
+			}
+			$key = isset( $field->field_key ) ? strtolower( (string) $field->field_key ) : '';
+			$name = isset( $field->name ) ? strtolower( (string) $field->name ) : '';
+			if ( 'study_id' === $key || 'study_id' === $name ) {
+				return absint( $field->id ?? 0 );
+			}
+		}
+		return 0;
+	}
+
+	private function force_entry_meta_value( $entry_id, $field_id, $value ) {
+		$value = sanitize_text_field( $value );
+		if ( '' === $value || ! $field_id ) {
+			return;
+		}
+		if ( class_exists( '\FrmEntryMeta' ) && method_exists( '\FrmEntryMeta', 'update_entry_meta' ) ) {
+			\FrmEntryMeta::update_entry_meta( $entry_id, $field_id, null, $value );
+			return;
+		}
+		$this->upsert_entry_meta_fallback( $entry_id, $field_id, $value );
 	}
 
 	private function update_entry_meta_if_empty( $entry_id, $field_id, $value ) {

@@ -55,6 +55,7 @@ class StudyConfig {
 				'center_field_id' => absint( $row['center_field_id'] ?? 0 ),
 				'center_code_field_id' => absint( $row['center_code_field_id'] ?? 0 ),
 				'code_used_field_id' => absint( $row['code_used_field_id'] ?? 0 ),
+				'study_id_field_id' => absint( $row['study_id_field_id'] ?? 0 ),
 			);
 			$clean[] = $entry;
 		}

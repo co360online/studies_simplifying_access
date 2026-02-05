@@ -70,6 +70,7 @@ class CPT_Study {
 			<strong><?php esc_html_e( 'CRD – Autorrelleno', CO360_SSA_TEXT_DOMAIN ); ?></strong>
 			<p class="description"><?php esc_html_e( 'Configura aquí los formularios CRD y los Field IDs que se autopoblarán en este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
 			<p class="description"><?php esc_html_e( 'Para el campo de número de envío en Formidable, usa el shortcode [co360_ssa_crd_submission_number] como valor por defecto.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+			<p class="description"><?php esc_html_e( 'Incluye un campo hidden study_id en el CRD; puedes mapear su Field ID aquí o usar field key/nombre "study_id" para autodetección.', CO360_SSA_TEXT_DOMAIN ); ?></p>
 			<table class="widefat striped" id="co360-ssa-crd-mappings">
 				<thead>
 					<tr>
@@ -78,6 +79,7 @@ class CPT_Study {
 						<th><?php esc_html_e( 'center Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
 						<th><?php esc_html_e( 'center_code Field ID (opcional)', CO360_SSA_TEXT_DOMAIN ); ?></th>
 						<th><?php esc_html_e( 'code_used Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'study_id Field ID (hidden)', CO360_SSA_TEXT_DOMAIN ); ?></th>
 						<th><?php esc_html_e( 'Acciones', CO360_SSA_TEXT_DOMAIN ); ?></th>
 					</tr>
 				</thead>
@@ -90,12 +92,13 @@ class CPT_Study {
 							'center_field_id' => 0,
 							'center_code_field_id' => 0,
 							'code_used_field_id' => 0,
+							'study_id_field_id' => 0,
 						),
 					);
 					$crd_index = 0;
 					if ( 1 === count( $crd_mappings ) && empty( $crd_mappings[0]['form_id'] ) ) :
 						?>
-						<tr><td colspan="6"><em><?php esc_html_e( 'No hay formularios CRD configurados todavía para este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></em></td></tr>
+						<tr><td colspan="7"><em><?php esc_html_e( 'No hay formularios CRD configurados todavía para este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></em></td></tr>
 						<?php
 					endif;
 					foreach ( $crd_mappings as $mapping ) :

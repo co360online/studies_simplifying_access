@@ -31,7 +31,7 @@
 ### Dashboard de Estudios (admin)
 - Menú: **Studies Simplifying Access > Dashboard**.
 - Selecciona un estudio para ver KPIs, centros e investigadores recientes.
-- Si falta `study_id_field_id` en los mapeos CRD, el KPI de CRDs mostrará un aviso de configuración.
+- Si falta `study_id_field_id` en los mapeos CRD, se intentará autodetectar un hidden `study_id` (field key/nombre) y se mostrará aviso de auto-detección o de configuración pendiente.
 
 ### Shortcodes disponibles
 - `[acceso_estudio study_id="123" title="Acceso" button_text="Acceder" require_code="1"]`
@@ -55,4 +55,5 @@
 
 
 ## Changelog
+- **1.0.3**: Auto-detección del field study_id en CRDs para evitar errores de configuración.
 - **1.0.1**: Añadido Dashboard de Estudios (admin), selector por estudio con KPIs/tablas, y cache temporal con invalidación en inscripciones/CRDs.

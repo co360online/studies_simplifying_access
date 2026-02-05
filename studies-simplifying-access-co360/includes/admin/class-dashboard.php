@@ -119,20 +119,47 @@ class Dashboard {
 		global $wpdb;
 		$mappings = StudyConfig::get_crd_mappings( $study_id );
 		$field_map = array();
+		$auto_detected_messages = array();
+		$missing_forms = array();
+
 		foreach ( $mappings as $map ) {
-			$field_id = absint( $map['study_id_field_id'] ?? 0 );
 			$form_id = absint( $map['form_id'] ?? 0 );
-			if ( $field_id && $form_id ) {
+			if ( ! $form_id ) {
+				continue;
+			}
+
+			$resolved = StudyConfig::resolve_study_id_field_id( $form_id, $map['study_id_field_id'] ?? 0 );
+			$field_id = absint( $resolved['field_id'] ?? 0 );
+			$source = (string) ( $resolved['source'] ?? 'missing' );
+
+			if ( $field_id ) {
 				$field_map[] = array(
 					'field_id' => $field_id,
 					'form_id' => $form_id,
 				);
+				if ( 'auto' === $source ) {
+					$auto_detected_messages[] = sprintf(
+						__( 'study_id detectado automáticamente (Form %1$d, Field ID %2$d)', CO360_SSA_TEXT_DOMAIN ),
+						$form_id,
+						$field_id
+					);
+				}
+			} else {
+				$missing_forms[] = $form_id;
 			}
 		}
+
 		if ( empty( $field_map ) ) {
+			$message = __( 'No se pudo contar CRDs: configura study_id Field ID o añade un campo hidden study_id detectable.', CO360_SSA_TEXT_DOMAIN );
+			if ( ! empty( $missing_forms ) ) {
+				$message .= ' ' . sprintf(
+					__( 'Formularios afectados: %s.', CO360_SSA_TEXT_DOMAIN ),
+					implode( ', ', array_map( 'absint', $missing_forms ) )
+				);
+			}
 			return array(
 				'count' => null,
-				'message' => __( '— (configurar field_id study_id en CRDs)', CO360_SSA_TEXT_DOMAIN ),
+				'message' => $message,
 				'last_created_at' => '',
 			);
 		}
@@ -163,9 +190,20 @@ class Dashboard {
 			}
 		}
 
+		$message_parts = array();
+		if ( ! empty( $auto_detected_messages ) ) {
+			$message_parts[] = implode( ' · ', array_unique( $auto_detected_messages ) );
+		}
+		if ( ! empty( $missing_forms ) ) {
+			$message_parts[] = sprintf(
+				__( 'Configuración pendiente (sin study_id detectable) en forms: %s.', CO360_SSA_TEXT_DOMAIN ),
+				implode( ', ', array_map( 'absint', $missing_forms ) )
+			);
+		}
+
 		return array(
 			'count' => $total,
-			'message' => '',
+			'message' => implode( ' ', $message_parts ),
 			'last_created_at' => $last_created,
 		);
 	}

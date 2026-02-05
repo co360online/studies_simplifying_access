@@ -79,7 +79,7 @@ class CPT_Study {
 						<th><?php esc_html_e( 'center Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
 						<th><?php esc_html_e( 'center_code Field ID (opcional)', CO360_SSA_TEXT_DOMAIN ); ?></th>
 						<th><?php esc_html_e( 'code_used Field ID', CO360_SSA_TEXT_DOMAIN ); ?></th>
-						<th><?php esc_html_e( 'study_id Field ID (hidden)', CO360_SSA_TEXT_DOMAIN ); ?></th>
+						<th><?php esc_html_e( 'study_id Field ID (hidden)', CO360_SSA_TEXT_DOMAIN ); ?><br><small><?php esc_html_e( 'Si se deja vacío, se intentará detectar automáticamente el campo hidden study_id.', CO360_SSA_TEXT_DOMAIN ); ?></small></th>
 						<th><?php esc_html_e( 'Acciones', CO360_SSA_TEXT_DOMAIN ); ?></th>
 					</tr>
 				</thead>
@@ -109,6 +109,10 @@ class CPT_Study {
 							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][center_field_id]" value="<?php echo esc_attr( $mapping['center_field_id'] ?? 0 ); ?>"></td>
 							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][center_code_field_id]" value="<?php echo esc_attr( $mapping['center_code_field_id'] ?? 0 ); ?>"></td>
 							<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][code_used_field_id]" value="<?php echo esc_attr( $mapping['code_used_field_id'] ?? 0 ); ?>"></td>
+							<td>
+								<input type="number" class="small-text" name="co360_ssa_crd_mappings[<?php echo esc_attr( $crd_index ); ?>][study_id_field_id]" value="<?php echo esc_attr( $mapping['study_id_field_id'] ?? 0 ); ?>">
+								<br><button type="button" class="button-link co360-ssa-detect-study-id"><?php esc_html_e( 'Detectar automáticamente', CO360_SSA_TEXT_DOMAIN ); ?></button>
+							</td>
 							<td><button type="button" class="button link-button co360-ssa-remove-row"><?php esc_html_e( 'Quitar', CO360_SSA_TEXT_DOMAIN ); ?></button></td>
 						</tr>
 						<?php
@@ -126,15 +130,33 @@ class CPT_Study {
 					}
 					let index = <?php echo (int) $crd_index; ?>;
 					const addButton = document.getElementById( 'co360-ssa-add-crd-row' );
-					const onRemove = function( event ) {
+					const onTableClick = function( event ) {
 						if ( event.target && event.target.classList.contains( 'co360-ssa-remove-row' ) ) {
 							const row = event.target.closest( 'tr' );
 							if ( row ) {
 								row.remove();
 							}
+							return;
+						}
+						if ( event.target && event.target.classList.contains( 'co360-ssa-detect-study-id' ) ) {
+							event.preventDefault();
+							const row = event.target.closest( 'tr' );
+							if ( ! row ) {
+								return;
+							}
+							const formInput = row.querySelector( 'input[name*="[form_id]"]' );
+							const studyFieldInput = row.querySelector( 'input[name*="[study_id_field_id]"]' );
+							if ( ! formInput || ! studyFieldInput ) {
+								return;
+							}
+							if ( ! formInput.value ) {
+								window.alert( <?php echo wp_json_encode( __( 'Indica primero el Form ID.', CO360_SSA_TEXT_DOMAIN ) ); ?> );
+								return;
+							}
+							window.alert( <?php echo wp_json_encode( __( 'La detección automática se aplicará al guardar (si existe hidden study_id).', CO360_SSA_TEXT_DOMAIN ) ); ?> );
 						}
 					};
-					table.addEventListener( 'click', onRemove );
+					table.addEventListener( 'click', onTableClick );
 					if ( addButton ) {
 						addButton.addEventListener( 'click', function( event ) {
 							event.preventDefault();
@@ -145,6 +167,7 @@ class CPT_Study {
 								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][center_field_id]" value=""></td>' +
 								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][center_code_field_id]" value=""></td>' +
 								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][code_used_field_id]" value=""></td>' +
+								'<td><input type="number" class="small-text" name="co360_ssa_crd_mappings[' + index + '][study_id_field_id]" value=""><br><button type="button" class="button-link co360-ssa-detect-study-id"><?php echo esc_js( __( 'Detectar automáticamente', CO360_SSA_TEXT_DOMAIN ) ); ?></button></td>' +
 								'<td><button type="button" class="button link-button co360-ssa-remove-row"><?php echo esc_js( __( 'Quitar', CO360_SSA_TEXT_DOMAIN ) ); ?></button></td>';
 							table.querySelector( 'tbody' ).appendChild( row );
 							index++;

@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<div style="display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:12px; margin-bottom:20px;">
 		<div class="card"><h3><?php esc_html_e( 'Investigadores inscritos', CO360_SSA_TEXT_DOMAIN ); ?></h3><p><strong><?php echo esc_html( (string) ( $dashboard_data['investigators_count'] ?? 0 ) ); ?></strong></p></div>
 		<div class="card"><h3><?php esc_html_e( 'Centros', CO360_SSA_TEXT_DOMAIN ); ?></h3><p><strong><?php echo esc_html( (string) ( $dashboard_data['centers_count'] ?? 0 ) ); ?></strong></p></div>
-		<div class="card"><h3><?php esc_html_e( 'CRDs enviados', CO360_SSA_TEXT_DOMAIN ); ?></h3><p><strong><?php echo null === ( $dashboard_data['crd_sent_count'] ?? null ) ? esc_html( '—' ) : esc_html( (string) $dashboard_data['crd_sent_count'] ); ?></strong></p><small><?php echo esc_html( $dashboard_data['crd_config_message'] ?? '' ); ?></small></div>
+		<div class="card"><h3><?php esc_html_e( 'CRDs enviados', CO360_SSA_TEXT_DOMAIN ); ?></h3><p><strong><?php echo null === ( $dashboard_data['crd_sent_count'] ?? null ) ? esc_html__( 'Configurar', CO360_SSA_TEXT_DOMAIN ) : esc_html( (string) $dashboard_data['crd_sent_count'] ); ?></strong></p><?php if ( ! empty( $dashboard_data['crd_config_message'] ) ) : ?><small><?php echo esc_html( $dashboard_data['crd_config_message'] ); ?></small><?php endif; ?></div>
 		<div class="card"><h3><?php esc_html_e( 'Última actividad', CO360_SSA_TEXT_DOMAIN ); ?></h3><p><strong><?php echo esc_html( $dashboard_data['last_crd_at'] ?: ( $dashboard_data['last_enrollment_at'] ?: '—' ) ); ?></strong></p></div>
 	</div>
 

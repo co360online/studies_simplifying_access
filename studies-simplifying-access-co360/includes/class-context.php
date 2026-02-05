@@ -25,14 +25,33 @@ class Context {
 			return absint( $GLOBALS['co360_ssa_current_study_id'] );
 		}
 
-		$token = sanitize_text_field( wp_unslash( $_GET[ CO360_SSA_TOKEN_QUERY ] ?? $_POST[ CO360_SSA_TOKEN_QUERY ] ?? '' ) );
-		if ( '' === $token ) {
-			return 0;
+		if ( is_page() ) {
+			$page_id = get_queried_object_id();
+			if ( $page_id ) {
+				$studies = get_posts(
+					array(
+						'post_type' => CO360_SSA_CT_STUDY,
+						'numberposts' => -1,
+						'fields' => 'ids',
+						'meta_query' => array(
+							array(
+								'key' => '_co360_ssa_activo',
+								'value' => '1',
+							),
+						),
+					)
+				);
+				foreach ( $studies as $study_id ) {
+					$protected_pages = get_post_meta( $study_id, '_co360_ssa_protected_pages', true );
+					$protected_pages = is_array( $protected_pages ) ? array_map( 'absint', $protected_pages ) : array();
+					if ( in_array( $page_id, $protected_pages, true ) ) {
+						self::set_current_study_id( $study_id );
+						return absint( $study_id );
+					}
+				}
+			}
 		}
-		$context = ( new Auth() )->get_context_by_token( $token );
-		if ( ! $context ) {
-			return 0;
-		}
-		return absint( $context['study_id'] ?? 0 );
+
+		return 0;
 	}
 }

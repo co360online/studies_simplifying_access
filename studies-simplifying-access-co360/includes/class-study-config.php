@@ -8,6 +8,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 class StudyConfig {
 	private const CRD_META_KEY = '_co360_ssa_crd_mappings';
 
+	public static function get_crd_map( $study_id, $form_id ) {
+		$study_id = absint( $study_id );
+		$form_id = absint( $form_id );
+		if ( ! $study_id || ! $form_id ) {
+			return null;
+		}
+		$mappings = self::get_crd_mappings( $study_id );
+		foreach ( $mappings as $mapping ) {
+			if ( $form_id === (int) ( $mapping['form_id'] ?? 0 ) ) {
+				return $mapping;
+			}
+		}
+		return null;
+	}
+
+	public static function is_crd_form( $study_id, $form_id ) {
+		return null !== self::get_crd_map( $study_id, $form_id );
+	}
+
 	public static function get_crd_mappings( $study_id ) {
 		$study_id = absint( $study_id );
 		if ( ! $study_id ) {

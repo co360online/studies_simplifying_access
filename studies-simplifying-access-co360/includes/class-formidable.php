@@ -42,22 +42,13 @@ class Formidable {
 		if ( ! $form_id ) {
 			$form_id = isset( $values['form_id'] ) ? (int) $values['form_id'] : 0;
 		}
+		if ( ! $form_id ) {
+			return $values;
+		}
 
-		$mapping = array();
-		$mappings = StudyConfig::get_crd_mappings( $study_id );
-		if ( $mappings ) {
-			if ( ! $form_id ) {
-				return $values;
-			}
-			foreach ( $mappings as $row ) {
-				if ( (int) ( $row['form_id'] ?? 0 ) === $form_id ) {
-					$mapping = $row;
-					break;
-				}
-			}
-			if ( empty( $mapping ) ) {
-				return $values;
-			}
+		$mapping = StudyConfig::get_crd_map( $study_id, $form_id );
+		if ( ! $mapping ) {
+			return $values;
 		}
 
 		$row = $this->get_latest_enrollment_row( $user_id, $study_id );
@@ -66,34 +57,14 @@ class Formidable {
 		}
 
 		$value = '';
-		if ( $mapping ) {
-			if ( $field_id === (int) ( $mapping['investigator_code_field_id'] ?? 0 ) ) {
-				$value = $row['investigator_code'];
-			} elseif ( $field_id === (int) ( $mapping['center_field_id'] ?? 0 ) ) {
-				$value = $this->format_center_label( $row['center_name'], $row['center_code'] );
-			} elseif ( $field_id === (int) ( $mapping['center_code_field_id'] ?? 0 ) ) {
-				$value = $row['center_code'];
-			} elseif ( $field_id === (int) ( $mapping['code_used_field_id'] ?? 0 ) ) {
-				$value = $row['code_used'];
-			}
-		} else {
-			$options = Utils::get_options();
-			$investigator_ids = Utils::parse_field_ids_option( $options['crd_field_ids_investigator_code'] ?? '' );
-			$center_name_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_name'] ?? '' );
-			$center_code_ids = Utils::parse_field_ids_option( $options['crd_field_ids_center_code'] ?? '' );
-			$code_used_ids = Utils::parse_field_ids_option( $options['crd_field_ids_code_used'] ?? '' );
-			if ( empty( $investigator_ids ) && empty( $center_name_ids ) && empty( $center_code_ids ) && empty( $code_used_ids ) ) {
-				return $values;
-			}
-			if ( in_array( $field_id, $investigator_ids, true ) ) {
-				$value = $row['investigator_code'];
-			} elseif ( in_array( $field_id, $center_name_ids, true ) ) {
-				$value = $row['center_name'];
-			} elseif ( in_array( $field_id, $center_code_ids, true ) ) {
-				$value = $row['center_code'];
-			} elseif ( in_array( $field_id, $code_used_ids, true ) ) {
-				$value = $row['code_used'];
-			}
+		if ( $field_id === (int) ( $mapping['investigator_code_field_id'] ?? 0 ) ) {
+			$value = $row['investigator_code'];
+		} elseif ( $field_id === (int) ( $mapping['center_field_id'] ?? 0 ) ) {
+			$value = $this->format_center_label( $row['center_name'], $row['center_code'] );
+		} elseif ( $field_id === (int) ( $mapping['center_code_field_id'] ?? 0 ) ) {
+			$value = $row['center_code'];
+		} elseif ( $field_id === (int) ( $mapping['code_used_field_id'] ?? 0 ) ) {
+			$value = $row['code_used'];
 		}
 
 		if ( '' === $value ) {
@@ -163,6 +134,47 @@ class Formidable {
 			return $errors;
 		}
 
+		$study_id = Context::get_current_study_id();
+		$is_enrollment_form = false;
+		$is_crd_form = false;
+		if ( $study_id && $form_id ) {
+			$enroll_form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
+			$is_enrollment_form = $enroll_form_id && $form_id === $enroll_form_id;
+			$is_crd_form = StudyConfig::is_crd_form( $study_id, $form_id );
+		}
+
+		$user = wp_get_current_user();
+		$user_id = $user && $user->ID ? (int) $user->ID : 0;
+
+		if ( 2 === Utils::get_debug_level() ) {
+			$access_ok = 0;
+			if ( $study_id && $user_id ) {
+				$access_ok = $this->user_is_enrolled_in_study( $user_id, $study_id ) ? 1 : 0;
+			}
+			Utils::log(
+				sprintf(
+					'Debug CRD validate: form_id=%d current_study_id=%d is_crd_form=%d is_enrollment_form=%d user_id=%d acceso_ok=%d',
+					$form_id,
+					$study_id,
+					$is_crd_form ? 1 : 0,
+					$is_enrollment_form ? 1 : 0,
+					$user_id,
+					$access_ok
+				)
+			);
+		}
+
+		if ( $is_crd_form ) {
+			if ( ! $user_id || ! $this->user_is_enrolled_in_study( $user_id, $study_id ) ) {
+				$errors['co360_ssa_access'] = __( 'No tienes acceso a este estudio.', CO360_SSA_TEXT_DOMAIN );
+			}
+			return $errors;
+		}
+
+		if ( ! $is_enrollment_form ) {
+			return $errors;
+		}
+
 		$token = $this->get_token_from_request();
 		if ( empty( $token ) ) {
 			$errors['co360_ssa_context'] = __( 'Token inválido o expirado.', CO360_SSA_TEXT_DOMAIN );
@@ -175,10 +187,9 @@ class Formidable {
 			return $errors;
 		}
 
-		$study_id = absint( $context['study_id'] );
-		$enroll_form_id = absint( get_post_meta( $study_id, '_co360_ssa_enroll_form_id', true ) );
-		if ( ! $enroll_form_id || $form_id !== $enroll_form_id ) {
-			return $errors;
+		$context_study_id = absint( $context['study_id'] );
+		if ( $context_study_id && $context_study_id !== $study_id ) {
+			$study_id = $context_study_id;
 		}
 
 		$center_select_field_id = absint( get_post_meta( $study_id, '_co360_ssa_center_select_field_id', true ) );
@@ -226,8 +237,7 @@ class Formidable {
 			);
 		}
 
-		$user = wp_get_current_user();
-		if ( ! $user || ! $user->ID ) {
+		if ( ! $user_id ) {
 			$errors['co360_ssa_auth'] = __( 'Debes estar autenticado para inscribirte.', CO360_SSA_TEXT_DOMAIN );
 			return $errors;
 		}
@@ -494,6 +504,20 @@ class Formidable {
 			home_url( '/' )
 		);
 		( new Redirect() )->safe_redirect( $after_url );
+	}
+
+
+	private function user_is_enrolled_in_study( $user_id, $study_id ) {
+		global $wpdb;
+		$table = DB::table_name( CO360_SSA_DB_TABLE );
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$table} WHERE user_id = %d AND estudio_id = %d LIMIT 1",
+				$user_id,
+				$study_id
+			)
+		);
+		return (bool) $found;
 	}
 
 	private function get_center_code_from_values( $values, $field_id ) {

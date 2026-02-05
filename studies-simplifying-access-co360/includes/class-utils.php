@@ -13,10 +13,6 @@ class Utils {
 			'enrollment_page_url' => '',
 			'login_page_url' => '',
 			'context_ttl' => 60,
-			'crd_field_ids_investigator_code' => '',
-			'crd_field_ids_center_name' => '',
-			'crd_field_ids_center_code' => '',
-			'crd_field_ids_code_used' => '',
 		);
 	}
 

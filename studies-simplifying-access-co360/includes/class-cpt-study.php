@@ -68,7 +68,7 @@ class CPT_Study {
 		</p>
 		<div class="co360-ssa-crd-mappings">
 			<strong><?php esc_html_e( 'CRD – Autorrelleno', CO360_SSA_TEXT_DOMAIN ); ?></strong>
-			<p class="description"><?php esc_html_e( 'Añade una fila por formulario CRD y completa los Field IDs a autopoblar.', CO360_SSA_TEXT_DOMAIN ); ?></p>
+			<p class="description"><?php esc_html_e( 'Configura aquí los formularios CRD y los Field IDs que se autopoblarán en este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></p>
 			<table class="widefat striped" id="co360-ssa-crd-mappings">
 				<thead>
 					<tr>
@@ -92,6 +92,11 @@ class CPT_Study {
 						),
 					);
 					$crd_index = 0;
+					if ( 1 === count( $crd_mappings ) && empty( $crd_mappings[0]['form_id'] ) ) :
+						?>
+						<tr><td colspan="6"><em><?php esc_html_e( 'No hay formularios CRD configurados todavía para este estudio.', CO360_SSA_TEXT_DOMAIN ); ?></em></td></tr>
+						<?php
+					endif;
 					foreach ( $crd_mappings as $mapping ) :
 						?>
 						<tr>

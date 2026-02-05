@@ -18,9 +18,8 @@
    - URL de inscripción global.
    - URL de login personalizada (opcional).
    - TTL del token (minutos).
-   - (Opcional) configuración global de CRD si aún no defines mapeos por estudio.
 
-### Autorrelleno CRD por estudio
+### Autorrelleno CRD por estudio (única configuración)
 1. En **Estudios**, edita el estudio correspondiente.
 2. En el metabox **CRD – Autorrelleno**, añade una fila por cada formulario CRD del estudio e indica:
    - Form ID del formulario CRD.

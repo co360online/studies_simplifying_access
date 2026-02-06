@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Studies Simplifying Access (CO360)
  * Description: Acceso por código + email para inscribir usuarios en estudios con contexto por token y control de inscripción.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: CO360
  * Requires at least: 6.1
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CO360_SSA_VERSION', '1.0.5' );
+define( 'CO360_SSA_VERSION', '1.0.6' );
 define( 'CO360_SSA_PLUGIN_FILE', __FILE__ );
 define( 'CO360_SSA_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CO360_SSA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

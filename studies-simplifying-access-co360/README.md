@@ -55,6 +55,7 @@
 
 
 ## Changelog
+- **1.0.6**: Fix CRD counts by center to count distinct frm_items (avoid meta duplicates).
 - **1.0.5**: Fix dashboard CRD counts (DISTINCT entries) + cache invalidation on Formidable delete.
 - **1.0.4**: Dashboard: KPI de centros activos con CRD + conteo CRDs por centro usando center_field_id.
 - **1.0.3**: Auto-detección del field study_id en CRDs para evitar errores de configuración.

@@ -76,6 +76,8 @@ class Dashboard {
 		);
 
 		$crd_info = $this->get_crd_count_info( $study_id );
+		$forms = is_array( $crd_info['forms'] ?? null ) ? $crd_info['forms'] : array();
+		$debug_centers_enabled = isset( $_GET['ssa_debug'] ) && 'centers' === sanitize_text_field( wp_unslash( $_GET['ssa_debug'] ) );
 
 		$center_rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -100,19 +102,33 @@ class Dashboard {
 			}
 		}
 
-		$crd_counts_by_code = is_array( $crd_info['counts_by_center_code'] ?? null ) ? $crd_info['counts_by_center_code'] : array();
-		$crd_counts_by_label = is_array( $crd_info['counts_by_center_label'] ?? null ) ? $crd_info['counts_by_center_label'] : array();
 		$rows = array();
+		$active_centers_count = 0;
+		$centers_debug_rows = array();
 		foreach ( $center_rows as $center_row ) {
 			$center_code = trim( (string) ( $center_row['center_code'] ?? '' ) );
 			$center_name = trim( (string) ( $center_row['center_name'] ?? '' ) );
 			$label = trim( $center_name . ' (' . $center_code . ')' );
+			$center_crd_data = $this->get_crd_count_for_center( $study_id, $center_code, $label, $forms, $debug_centers_enabled );
+			$center_crd_count = (int) ( $center_crd_data['count'] ?? 0 );
+			if ( $center_crd_count > 0 ) {
+				$active_centers_count++;
+			}
+
 			$rows[] = array(
 				'center_code' => $center_code,
 				'center_name' => $center_name,
 				'investigators_count' => (int) ( $investigator_counts_by_code[ $center_code ] ?? 0 ),
-				'crds_count' => (int) ( ( $crd_counts_by_code[ $center_code ] ?? 0 ) + ( $crd_counts_by_label[ $label ] ?? 0 ) ),
+				'crds_count' => $center_crd_count,
 			);
+
+			if ( $debug_centers_enabled ) {
+				$centers_debug_rows[] = array(
+					'center_label' => $label,
+					'count' => $center_crd_count,
+					'entry_ids' => $center_crd_data['entry_ids'] ?? array(),
+				);
+			}
 		}
 		$center_rows = $rows;
 
@@ -134,12 +150,13 @@ class Dashboard {
 		$data = array(
 			'investigators_count' => $investigators_count,
 			'centers_count' => $centers_count,
-			'active_centers_count' => (int) ( $crd_info['active_centers_count'] ?? 0 ),
+			'active_centers_count' => $active_centers_count,
 			'crd_sent_count' => $crd_info['count'],
 			'crd_config_message' => $crd_info['message'],
 			'last_enrollment_at' => $last_enrollment_at,
 			'last_crd_at' => $crd_info['last_created_at'],
 			'center_rows' => $center_rows,
+			'centers_debug_rows' => $centers_debug_rows,
 			'investigator_rows' => $investigator_rows,
 		);
 
@@ -190,92 +207,115 @@ class Dashboard {
 		);
 	}
 
-	private function parse_center_label_code( $value ) {
-		$value = trim( (string) $value );
-		if ( '' === $value ) {
-			return '';
-		}
-		if ( preg_match( '/\((\d{3})\)\s*$/', $value, $matches ) ) {
-			return $matches[1];
-		}
-		return '';
-	}
-
-	private function get_crd_center_stats( $study_id, $forms ) {
+	private function get_crd_count_for_study( $study_id, $forms ) {
 		global $wpdb;
 		$frm_items = $wpdb->prefix . 'frm_items';
 		$frm_metas = $wpdb->prefix . 'frm_item_metas';
-
-		$active_centers = array();
-		$counts_by_center_code = array();
-		$counts_by_center_label = array();
+		$total = 0;
 
 		foreach ( $forms as $form ) {
-			$form_id = absint( $form['form_id'] );
-			$study_field_id = absint( $form['study_id_field_id'] );
-			$center_code_field_id = absint( $form['center_code_field_id'] );
-			$center_field_id = absint( $form['center_field_id'] );
+			$total += (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(DISTINCT fi.id) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
+					$form['form_id'],
+					$form['study_id_field_id'],
+					(string) $study_id
+				)
+			);
+		}
 
-			$target_field_id = $center_code_field_id ?: $center_field_id;
-			if ( ! $target_field_id ) {
+		return $total;
+	}
+
+	private function get_crd_count_for_center( $study_id, $center_code, $center_label, $forms, $include_ids = false ) {
+		global $wpdb;
+		$frm_items = $wpdb->prefix . 'frm_items';
+		$frm_metas = $wpdb->prefix . 'frm_item_metas';
+		$total = 0;
+		$entry_ids = array();
+
+		foreach ( $forms as $form ) {
+			$center_field_id = absint( $form['center_code_field_id'] ?? 0 );
+			$center_value = (string) $center_code;
+			if ( ! $center_field_id ) {
+				$center_field_id = absint( $form['center_field_id'] ?? 0 );
+				$center_value = (string) $center_label;
+			}
+			if ( ! $center_field_id || '' === trim( $center_value ) ) {
 				continue;
 			}
 
-			$rows = $wpdb->get_results(
+			$total += (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT cm.meta_value AS center_value, COUNT(DISTINCT fi.id) AS crd_count
+					"SELECT COUNT(DISTINCT fi.id)
 					FROM {$frm_items} fi
-					INNER JOIN {$frm_metas} sm ON sm.item_id = fi.id
-					INNER JOIN {$frm_metas} cm ON cm.item_id = fi.id
+					INNER JOIN {$frm_metas} ms ON ms.item_id = fi.id
+					INNER JOIN {$frm_metas} mc ON mc.item_id = fi.id
 					WHERE fi.form_id = %d
-					AND sm.field_id = %d
-					AND sm.meta_value = %s
-					AND cm.field_id = %d
-					AND cm.meta_value <> ''
-					GROUP BY cm.meta_value",
-					$form_id,
-					$study_field_id,
+					AND ms.field_id = %d AND ms.meta_value = %s
+					AND mc.field_id = %d AND mc.meta_value = %s",
+					$form['form_id'],
+					$form['study_id_field_id'],
 					(string) $study_id,
-					$target_field_id
-				),
-				ARRAY_A
+					$center_field_id,
+					$center_value
+				)
 			);
 
-			foreach ( $rows as $row ) {
-				$value = trim( (string) ( $row['center_value'] ?? '' ) );
-				$count = (int) ( $row['crd_count'] ?? 0 );
-				if ( '' === $value || $count <= 0 ) {
-					continue;
-				}
-
-				if ( $center_code_field_id ) {
-					$code = $value;
-					$active_centers[ 'code:' . $code ] = true;
-					$counts_by_center_code[ $code ] = ( $counts_by_center_code[ $code ] ?? 0 ) + $count;
-					continue;
-				}
-
-				$parsed_code = $this->parse_center_label_code( $value );
-				if ( '' !== $parsed_code ) {
-					$active_centers[ 'code:' . $parsed_code ] = true;
-					$counts_by_center_code[ $parsed_code ] = ( $counts_by_center_code[ $parsed_code ] ?? 0 ) + $count;
-				} else {
-					$active_centers[ 'label:' . strtolower( $value ) ] = true;
-				}
-				$counts_by_center_label[ $value ] = ( $counts_by_center_label[ $value ] ?? 0 ) + $count;
+			if ( $include_ids ) {
+				$ids = $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT DISTINCT fi.id
+						FROM {$frm_items} fi
+						INNER JOIN {$frm_metas} ms ON ms.item_id = fi.id
+						INNER JOIN {$frm_metas} mc ON mc.item_id = fi.id
+						WHERE fi.form_id = %d
+						AND ms.field_id = %d AND ms.meta_value = %s
+						AND mc.field_id = %d AND mc.meta_value = %s
+						LIMIT 20",
+						$form['form_id'],
+						$form['study_id_field_id'],
+						(string) $study_id,
+						$center_field_id,
+						$center_value
+					)
+				);
+				$entry_ids = array_merge( $entry_ids, array_map( 'absint', is_array( $ids ) ? $ids : array() ) );
 			}
 		}
 
+		$entry_ids = array_values( array_unique( array_filter( $entry_ids ) ) );
+
 		return array(
-			'active_centers_count' => count( $active_centers ),
-			'counts_by_center_code' => $counts_by_center_code,
-			'counts_by_center_label' => $counts_by_center_label,
+			'count' => $total,
+			'entry_ids' => array_slice( $entry_ids, 0, 20 ),
 		);
 	}
 
-	private function get_crd_count_info( $study_id ) {
+	private function get_last_crd_created_at( $study_id, $forms ) {
 		global $wpdb;
+		$frm_items = $wpdb->prefix . 'frm_items';
+		$frm_metas = $wpdb->prefix . 'frm_item_metas';
+		$last_created = '';
 
+		foreach ( $forms as $form ) {
+			$last = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT MAX(fi.created_at) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
+					$form['form_id'],
+					$form['study_id_field_id'],
+					(string) $study_id
+				)
+			);
+			if ( $last && ( ! $last_created || strtotime( $last ) > strtotime( $last_created ) ) ) {
+				$last_created = $last;
+			}
+		}
+
+		return $last_created;
+	}
+
+	private function get_crd_count_info( $study_id ) {
 		$form_config = $this->get_crd_forms_config( $study_id );
 		$forms = $form_config['forms'];
 		$auto_detected_messages = $form_config['auto_detected_messages'];
@@ -293,39 +333,9 @@ class Dashboard {
 				'count' => null,
 				'message' => $message,
 				'last_created_at' => '',
-				'active_centers_count' => 0,
-				'counts_by_center_code' => array(),
-				'counts_by_center_label' => array(),
+				'forms' => array(),
 			);
 		}
-
-		$frm_items = $wpdb->prefix . 'frm_items';
-		$frm_metas = $wpdb->prefix . 'frm_item_metas';
-		$total = 0;
-		$last_created = '';
-		foreach ( $forms as $form ) {
-			$total += (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(DISTINCT fi.id) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
-					$form['form_id'],
-					$form['study_id_field_id'],
-					(string) $study_id
-				)
-			);
-			$last = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT MAX(fi.created_at) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
-					$form['form_id'],
-					$form['study_id_field_id'],
-					(string) $study_id
-				)
-			);
-			if ( $last && ( ! $last_created || strtotime( $last ) > strtotime( $last_created ) ) ) {
-				$last_created = $last;
-			}
-		}
-
-		$center_stats = $this->get_crd_center_stats( $study_id, $forms );
 
 		$message_parts = array();
 		if ( ! empty( $auto_detected_messages ) ) {
@@ -339,12 +349,10 @@ class Dashboard {
 		}
 
 		return array(
-			'count' => $total,
+			'count' => $this->get_crd_count_for_study( $study_id, $forms ),
 			'message' => implode( ' ', $message_parts ),
-			'last_created_at' => $last_created,
-			'active_centers_count' => (int) $center_stats['active_centers_count'],
-			'counts_by_center_code' => $center_stats['counts_by_center_code'],
-			'counts_by_center_label' => $center_stats['counts_by_center_label'],
+			'last_created_at' => $this->get_last_crd_created_at( $study_id, $forms ),
+			'forms' => $forms,
 		);
 	}
 

@@ -53,6 +53,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tbody>
 	</table>
 
+
+	<?php if ( isset( $_GET['ssa_debug'] ) && 'centers' === sanitize_text_field( wp_unslash( $_GET['ssa_debug'] ) ) && ! empty( $dashboard_data['centers_debug_rows'] ) ) : ?>
+		<h3><?php esc_html_e( 'Debug centros (CRD)', CO360_SSA_TEXT_DOMAIN ); ?></h3>
+		<table class="widefat striped">
+			<thead><tr><th>center_label</th><th>count</th><th>entry_ids (max 20)</th></tr></thead>
+			<tbody>
+				<?php foreach ( $dashboard_data['centers_debug_rows'] as $debug_row ) : ?>
+					<tr>
+						<td><?php echo esc_html( (string) ( $debug_row['center_label'] ?? '' ) ); ?></td>
+						<td><?php echo esc_html( (string) (int) ( $debug_row['count'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( implode( ',', array_map( 'absint', is_array( $debug_row['entry_ids'] ?? null ) ? $debug_row['entry_ids'] : array() ) ) ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+	<?php endif; ?>
+
 	<h2><?php esc_html_e( 'Investigadores (últimos 20)', CO360_SSA_TEXT_DOMAIN ); ?></h2>
 	<table class="widefat striped">
 		<thead><tr><th><?php esc_html_e( 'Nombre', CO360_SSA_TEXT_DOMAIN ); ?></th><th><?php esc_html_e( 'Email', CO360_SSA_TEXT_DOMAIN ); ?></th><th><?php esc_html_e( 'investigator_code', CO360_SSA_TEXT_DOMAIN ); ?></th><th><?php esc_html_e( 'Centro', CO360_SSA_TEXT_DOMAIN ); ?></th><th><?php esc_html_e( 'Fecha inscripción', CO360_SSA_TEXT_DOMAIN ); ?></th></tr></thead>

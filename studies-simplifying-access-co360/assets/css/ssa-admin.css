@@ -1,0 +1,27 @@
+.co360-ssa-admin .co360-ssa-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.co360-ssa-admin .co360-ssa-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.co360-ssa-admin .co360-ssa-filters {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.co360-ssa-admin .co360-ssa-help {
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  padding: 16px;
+}

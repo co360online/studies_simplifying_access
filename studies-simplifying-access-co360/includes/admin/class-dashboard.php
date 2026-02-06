@@ -223,7 +223,7 @@ class Dashboard {
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT cm.meta_value AS center_value, COUNT(*) AS crd_count
+					"SELECT cm.meta_value AS center_value, COUNT(DISTINCT fi.id) AS crd_count
 					FROM {$frm_items} fi
 					INNER JOIN {$frm_metas} sm ON sm.item_id = fi.id
 					INNER JOIN {$frm_metas} cm ON cm.item_id = fi.id
@@ -306,7 +306,7 @@ class Dashboard {
 		foreach ( $forms as $form ) {
 			$total += (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
+					"SELECT COUNT(DISTINCT fi.id) FROM {$frm_items} fi INNER JOIN {$frm_metas} fm ON fm.item_id = fi.id WHERE fi.form_id = %d AND fm.field_id = %d AND fm.meta_value = %s",
 					$form['form_id'],
 					$form['study_id_field_id'],
 					(string) $study_id

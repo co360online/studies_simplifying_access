@@ -21,6 +21,66 @@ class Formidable {
 		add_action( 'frm_after_create_entry', array( $this, 'after_create_entry' ), 10, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'crd_after_create_entry' ), 30, 2 );
 		add_action( 'frm_after_create_entry', array( $this, 'handle_registration_after_entry' ), 30, 2 );
+		add_action( 'frm_before_destroy_entry', array( $this, 'handle_before_destroy_entry' ), 10, 1 );
+	}
+
+
+	public function handle_before_destroy_entry( $entry_id ) {
+		$entry_id = absint( $entry_id );
+		if ( ! $entry_id || ! class_exists( '\FrmEntry' ) || ! method_exists( '\FrmEntry', 'getOne' ) ) {
+			return;
+		}
+
+		$entry = \FrmEntry::getOne( $entry_id );
+		if ( ! $entry || ! isset( $entry->form_id ) ) {
+			return;
+		}
+
+		$form_id = absint( $entry->form_id );
+		if ( ! $form_id ) {
+			return;
+		}
+
+		$study_ids = $this->get_study_ids_by_crd_form_id( $form_id );
+		if ( empty( $study_ids ) ) {
+			return;
+		}
+
+		foreach ( $study_ids as $study_id ) {
+			Dashboard::flush_study_cache( $study_id );
+		}
+	}
+
+	private function get_study_ids_by_crd_form_id( $form_id ) {
+		$form_id = absint( $form_id );
+		if ( ! $form_id ) {
+			return array();
+		}
+
+		$study_ids = get_posts(
+			array(
+				'post_type' => CO360_SSA_CT_STUDY,
+				'post_status' => 'any',
+				'fields' => 'ids',
+				'numberposts' => -1,
+			)
+		);
+		if ( ! is_array( $study_ids ) || empty( $study_ids ) ) {
+			return array();
+		}
+
+		$matched = array();
+		foreach ( $study_ids as $study_id ) {
+			$mappings = StudyConfig::get_crd_mappings( absint( $study_id ) );
+			foreach ( $mappings as $mapping ) {
+				if ( $form_id === absint( $mapping['form_id'] ?? 0 ) ) {
+					$matched[] = absint( $study_id );
+					break;
+				}
+			}
+		}
+
+		return array_values( array_unique( array_filter( $matched ) ) );
 	}
 
 	public function prepopulate_crd_fields( $values, $field ) {
